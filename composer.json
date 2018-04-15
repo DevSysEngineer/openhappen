@@ -1,0 +1,12 @@
+{
+    "name": "kvansteijn/openhappen",
+    "description": "OpenHappen is search engine with their own crawler bot and algorithm.",
+    "type": "project",
+    "authors": [
+        {
+            "name": "Kevin van Steijn",
+            "email": "info@kvansteijn.nl"
+        }
+    ],
+    "minimum-stability": "stable"
+}

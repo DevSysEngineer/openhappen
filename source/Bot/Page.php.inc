@@ -1,10 +1,11 @@
 <?php
 
-namespace Bot;
+namespace OpenHappen\Bot;
 
-class Website {
+class Page {
 
     protected $_request = NULL;
+    protected $_robots = NULL;
     protected $_smartDom = NULL;
 
     protected $_hashmarkHrefs = [];
@@ -13,6 +14,7 @@ class Website {
 
     public function __construct(string $url) {
         $this->_request = new Request($url);
+        $this->_robots = new Robots($this->_request->getSimpleURL());
     }
 
     public function retrieve() : array {

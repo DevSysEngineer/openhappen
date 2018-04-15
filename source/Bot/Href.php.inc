@@ -1,6 +1,6 @@
 <?php
 
-namespace Bot;
+namespace OpenHappen\Bot;
 
 class Href {
 

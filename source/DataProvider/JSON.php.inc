@@ -1,8 +1,8 @@
 <?php
 
-namespace DataProvider;
+namespace OpenHappen\DataProvider;
 
-use Bot;
+use OpenHappen\Bot;
 
 class JSON {
 
@@ -17,9 +17,9 @@ class JSON {
         }
     }
 
-    protected function _getWebsiteDir(string $filename = NULL) : string {
+    protected function _getPageDir(string $filename = NULL) : string {
         /* Create dir string */
-        $dir = $this->_dir . DIRECTORY_SEPARATOR . 'Websites' . DIRECTORY_SEPARATOR;
+        $dir = $this->_dir . DIRECTORY_SEPARATOR . 'Pages' . DIRECTORY_SEPARATOR;
         if ($filename !== NULL) {
             $dir .= $filename . '.json';
         }
@@ -40,7 +40,7 @@ class JSON {
 
     public function init() {
         /* Create website dir */
-        $dirWebsite = $this->_getWebsiteDir();
+        $dirWebsite = $this->_getPageDir();
         if (!file_exists($dirWebsite)) {
             if (!mkdir($dirWebsite, 0755, TRUE)) {
                 return[FALSE, 'Failed to create website dir'];
@@ -51,47 +51,43 @@ class JSON {
         return [TRUE, ''];
     }
 
-    public function addWebsite(Bot\Website $website) : array {
+    public function addPage(Bot\Page $page) : array {
         /* Create main object */
         $object = new \stdClass;
         $object->lastExport = time();
 
         /* Get request*/
-        $request = $website->getRequest();
+        $request = $page->getRequest();
 
-        /* Create website object */
-        $websiteObj = new \stdClass;
+        /* Create page object */
+        $pageObj = new \stdClass;
 
         /* Set hashmark hrefs */
-        $websiteObj->hashmarkHrefs = [];
-        foreach ($website->getHashmarkHrefs() as $hashmarkHref) {
-            $websiteObj->hashmarkHrefs[] = $hashmarkHref->toStdClass($request->getSimpleURL());
+        $pageObj->hashmarkHrefs = [];
+        foreach ($page->getHashmarkHrefs() as $hashmarkHref) {
+            $pageObj->hashmarkHrefs[] = $hashmarkHref->toStdClass($request->getSimpleURL());
         }
 
         /* Set internal hrefs */
-        $websiteObj->internalHrefs = [];
-        foreach ($website->getInternalHrefs() as $internalHref) {
-            $websiteObj->internalHrefs[] = $internalHref->toStdClass($request->getSimpleURL());
+        $pageObj->internalHrefs = [];
+        foreach ($page->getInternalHrefs() as $internalHref) {
+            $pageObj->internalHrefs[] = $internalHref->toStdClass($request->getSimpleURL());
         }
 
         /* Set external hrefs */
-        $websiteObj->externalHrefs = [];
-        foreach ($website->getExternalHrefs() as $externalHref) {
-            $websiteObj->externalHrefs[] = $externalHref->toStdClass($request->getSimpleURL());
+        $pageObj->externalHrefs = [];
+        foreach ($page->getExternalHrefs() as $externalHref) {
+            $pageObj->externalHrefs[] = $externalHref->toStdClass($request->getSimpleURL());
         }
 
-        /* Add website to main object */
-        $object->website = $websiteObj;
+        /* Add page to main object */
+        $object->page = $pageObj;
 
         /* Success */
-        return $this->_writeToFile($this->_getWebsiteDir($request->getId()), $object);
+        return $this->_writeToFile($this->_getPageDir($request->getId()), $object);
     }
 
-    public function retrieveWebsite(string $url) : bool {
-        return !file_exists($this->_getWebsiteDir(Bot\Request::Base64URLEncode($url)));
-    }
-
-    public function getWebsite(string $url) {
-
+    public function retrievePage(string $url) : bool {
+        return !file_exists($this->_getPageDir(Bot\Request::Base64URLEncode($url)));
     }
 }

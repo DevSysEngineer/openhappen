@@ -1,6 +1,6 @@
 <?php
 
-namespace Bot;
+namespace OpenHappen\Bot;
 
 class Request {
 
@@ -135,10 +135,14 @@ class Request {
         return $object;
     }
 
+    public function getUserAgent() {
+        return 'Mozilla/5.0 (compatible; OpenHappenBot/0.1; +https://github.com/KvanSteijn/openhappen)';
+    }
+
     public function retrieve() : array {
         /* Init CURL */
         $ch = curl_init($this->_url);
-        curl_setopt($ch, CURLOPT_USERAGENT, "Mozilla/4.0 (compatible; MSIE 8.0; Windows NT 6.0)");
+        curl_setopt($ch, CURLOPT_USERAGENT, $this->getUserAgent());
         curl_setopt($ch, CURLOPT_RETURNTRANSFER, TRUE);
         curl_setopt($ch, CURLOPT_SSL_VERIFYHOST, FALSE);
         curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, FALSE);
