@@ -24,20 +24,24 @@ class SmartDOM {
         /* Check if filter is active */
         $activeFilters = !empty($filters);
 
-        /* Get hrefs */
+        /* Create default values */
         $hrefs = [];
+        $paths = [];
+
+        /* Get hrefs */
         $elements = $this->_domDocument->getElementsByTagName('a');
         foreach ($elements as $element) {
-            $href = $element->getAttribute('href');
-            if (!empty($href)) {
+            $rawHref = $element->getAttribute('href');
+            if (!empty($rawHref) && !in_array($rawHref, $paths)) {
                 /* Create Href  */
-                $href = new Href($href);
+                $hrefObj = new Href($rawHref);
 
                 /* Get type and check if type is valid or exists in filter */
-                $type = $href->getType();
+                $type = $hrefObj->getType();
                 if ($type !== Request::TYPE_UNKNOWN &&
                     (!$activeFilters || ($activeFilters && in_array($type, $filters)))) {
-                    $hrefs[] = $href;
+                    $hrefs[] = $hrefObj;
+                    $paths[] = $rawHref;
                 }
             }
         }

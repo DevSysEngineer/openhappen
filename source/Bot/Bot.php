@@ -17,16 +17,25 @@ require_once __DIR__ . '/Page.php.inc';
 class Bot {
 
     protected $_dataProvider = NULL;
+    protected $_domainExtensionCheck = FALSE;
+    protected $_domainExtensions = [];
 
-    public function __construct($dataProvider) {
+    public function __construct($dataProvider, array $domainExtensions = []) {
         $this->_dataProvider = $dataProvider;
+        $this->_domainExtensionCheck = !empty($domainExtensions);
+        $this->_domainExtensions = $domainExtensions;
+
+    }
+
+    protected function _log(string $text) {
+        echo '[' . date('r') . '] ' . $text . PHP_EOL;
     }
 
     protected function _checkHrefs(Request $request, array $hrefs) {
         /* Get URL's */
         $urls = [];
         foreach ($hrefs as $href) {
-            $url = $href->getURL($request->getSimpleURL());
+            $url = $href->getURL($request->getDomainURL());
             if ($this->_dataProvider->retrievePage($url)) {
                 $urls[] = $url;
             }
@@ -48,13 +57,22 @@ class Bot {
         return $result;
     }
 
-    public function log(string $text) {
-        echo '[' . date('r') . '] ' . $text . PHP_EOL;
+    public function start($url) {
+        do {
+            /* Check if url value is not empty */
+            if (!empty($url)) {
+                list($status, $message) = $this->progress($url, TRUE);
+                if (!$status) {
+                    $this->_log($message);
+                }
+                $url = NULL;
+            }
+        } while (empty($url));
     }
 
-    public function start(string $url, bool $deep = FALSE) : array {
+    public function progress(string $url, bool $deep = FALSE, Robots $robots = NULL) : array {
         /* Create log log */
-        $this->log('Processing ' . $url);
+        $this->_log('Processing ' . $url);
 
         /* Check if data provider is NULL */
         if ($this->_dataProvider === NULL) {
@@ -62,13 +80,26 @@ class Bot {
         }
 
         /* Create page object */
-        $page = new Page($url);
+        $page = new Page($url, $robots);
+
+        /* Get request */
+        $request = $page->getRequest();
+
+        /* Check if domain extension check is enabled */
+        if ($this->_domainExtensionCheck && !in_array($request->getExtension(), $this->_domainExtensions)) {
+            return [NULL, 'Extension is different than the required extensions'];
+        }
+
+        /* Init page */
+        list($status, $message) = $page->init();
+        if (!$status) {
+            return [NULL, 'Failed to init page: ' . $message];
+        }
 
         /* Retrieve page */
-        $result = $page->retrieve();
-        list($status, $message) = $result;
+        list($status, $message) = $page->retrieve();
         if (!$status) {
-            return [NULL, 'Failed to retieve page: ' . $message];
+            return [NULL, 'Failed to retrieve page: ' . $message];
         }
 
         /* Add page */
@@ -79,14 +110,16 @@ class Bot {
             /* Create empty array for websites */
             $internalPages = [];
 
+            /* Get robots object */
+            $robots = $page->getRobots();
+
             /* Check if internal hrefs exists */
             $internalHrefs = $page->getInternalHrefs();
-            $urls = $this->_checkHrefs($page->getRequest(), $internalHrefs);
+            $urls = $this->_checkHrefs($request, $internalHrefs);
             foreach ($urls as $url) {
-                $result = $this->start($url, FALSE);
-                list($childPage, $message) = $result;
+                list($childPage, $message) = $this->progress($url, FALSE, $robots);
                 if ($childPage === NULL) {
-                    $this->log($message);
+                    $this->_log($message);
                 } else {
                     $internalPages[] = $childPage;
                 }
@@ -97,10 +130,9 @@ class Bot {
                 $internalHrefs = $internalPage->getInternalHrefs();
                 $urls = $this->_checkHrefs($internalPage->getRequest(), $internalHrefs);
                 foreach ($urls as $url) {
-                    $result = $this->start($url, TRUE);
-                    list($childPage, $message) = $result;
+                    list($childPage, $message) = $this->progress($url, TRUE, $robots);
                     if ($childPage === NULL) {
-                        $this->log($message);
+                        $this->_log($message);
                     }
                 }
             }
@@ -119,6 +151,7 @@ if (php_sapi_name() !== 'cli') {
 /* Set some default info */
 $urlValue = NULL;
 $dataProviderValue = 'json';
+$domainExtensionValues = [];
 
 /* Get url path */
 $urlKey = array_search('--url', $argv);
@@ -132,6 +165,12 @@ if ($dataProviderKey !== FALSE && !empty($argv[$dataProviderKey + 1])) {
     $dataProviderValue = $argv[$dataProviderKey + 1];
 }
 
+/* Get domain extenions */
+$domainExtensionsKey = array_search('--only-domain-extensions', $argv);
+if ($domainExtensionsKey !== FALSE && !empty($argv[$domainExtensionsKey + 1])) {
+    $domainExtensionValues = explode(',', $argv[$domainExtensionsKey + 1]);
+}
+
 /* Get data provider object */
 switch ($dataProviderValue) {
     case 'json':
@@ -142,7 +181,7 @@ switch ($dataProviderValue) {
 }
 
 /* Create bot object */
-$bot = new Bot($dataProviderObj);
+$bot = new Bot($dataProviderObj, $domainExtensionValues);
 
 /* Init bot */
 list($status, $message) = $bot->init();
@@ -150,13 +189,5 @@ if (!$status) {
     exit($message . PHP_EOL);
 }
 
-do {
-    /* Check if url value is not NULL */
-    if (!empty($urlValue)) {
-        list($status, $message) = $bot->start($urlValue, TRUE);
-        if (!$status) {
-            $bot->log($message);
-        }
-        $urlValue = NULL;
-    }
-} while (empty($urlValue));
+/* Start bot */
+$bot->start($urlValue);

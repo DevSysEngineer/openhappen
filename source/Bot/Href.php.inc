@@ -40,10 +40,10 @@ class Href {
         return (in_array($this->_type, [Request::TYPE_PATH, Request::TYPE_HASHMARK]) || $this->_host === $host);
     }
 
-    public function toStdClass(string $simpleURL) : \stdClass {
+    public function toStdClass(string $domainURL) : \stdClass {
         /* Create object */
         $object = new \stdClass;
-        $object->url = $this->getURL($simpleURL);
+        $object->url = $this->getURL($domainURL);
 
         /* Return object */
         return $object;

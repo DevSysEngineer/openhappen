@@ -14,11 +14,12 @@ class Request {
     protected $_id = NULL;
     protected $_scheme  = NULL;
     protected $_host = NULL;
-    protected $_domain = NULL;
+    protected $_name = NULL;
+    protected $_extension = NULL;
     protected $_port = NULL;
     protected $_type = NULL;
     protected $_path = NULL;
-    protected $_simpleURL = NULL;
+    protected $_domainURL = NULL;
 
     protected $_httpCode = 0;
     protected $_charset = 'UTF-8';
@@ -30,11 +31,12 @@ class Request {
         $this->_id = $object->id;
         $this->_scheme = $object->scheme;
         $this->_host = $object->host;
-        $this->_domain = $object->domain;
+        $this->_name = $object->name;
+        $this->_extension = $object->extension;
         $this->_port = $object->port;
         $this->_type = $object->type;
         $this->_path = $object->path;
-        $this->_simpleURL = $object->simpleURL;
+        $this->_domainURL = $object->domainURL;
     }
 
     /**
@@ -66,7 +68,8 @@ class Request {
         $object->scheme = NULL;
         $object->host = NULL;
         $object->port = NULL;
-        $object->domain = NULL;
+        $object->name = NULL;
+        $object->extension  = NULL;
         $object->path = NULL;
 
         /* Check if url is hashmark */
@@ -109,19 +112,13 @@ class Request {
             /* Host is domain */
             $object->type = self::TYPE_DOMAIN;
 
-            /* Get doamin */
+            /* Set some data */
             $explHost = explode('.', $object->host);
-            $explCount = count($explHost);
-            if ($explCount > 2) {
-                $hostname = $explHost[($explCount - 2)];
-                $extension = $explHost[($explCount - 1)];
-                $object->domain = $hostname . '.' . $extension;
-            } else {
-                $object->domain = $object->host;
-            }
+            $object->extension = array_pop($explHost);
+            $object->name = implode('.', $explHost);
         } else {
             /* Hostname is IP */
-            $object->domain = $object->host;
+            $object->name = $object->host;
             $object->type = self::TYPE_OTHER;
         }
 
@@ -130,7 +127,7 @@ class Request {
         $object->path = ($path === NULL) ? '/' : $path;
 
         /* Set simple URL */
-        $object->simpleURL = $object->scheme . '://' . $object->host . '/';
+        $object->domainURL = $object->scheme . '://' . $object->host . '/';
 
         /* Return object */
         return $object;
@@ -172,6 +169,7 @@ class Request {
         switch ($this->_httpCode) {
             case 200:
             case 301:
+            case 202:
                 $status = TRUE;
                 break;
             default:
@@ -198,8 +196,12 @@ class Request {
         return $this->_path;
     }
 
-    public function getSimpleURL() {
-        return $this->_simpleURL;
+    public function getExtension() {
+        return $this->_extension;
+    }
+
+    public function getDomainURL() {
+        return $this->_domainURL;
     }
 
     public function getContent($encoding = 'UTF-8') {

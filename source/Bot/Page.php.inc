@@ -14,21 +14,27 @@ class Page {
     protected $_internalHrefs = [];
     protected $_externalHrefs = [];
 
-    public function __construct(string $url) {
+    public function __construct(string $url, Robots $robots = NULL) {
         $this->_request = new Request($url);
-        $this->_robots = new Robots($this->_request->getSimpleURL());
+        $this->_robots = empty($robots) ? new Robots($this->_request->getDomainURL()) : $robots;
+    }
+
+    public function init() : array {
+        /* Run request */
+        list($status, $message) = $this->_robots->retrieve();
+        if (!$status) {
+            $this->_logs[] = 'Failed to retrieve robots.txt: ' . $message;
+        }
+
+        /* Success */
+        return [TRUE, ''];
     }
 
     public function retrieve() : array {
-        /* Run request */
-        list($status, $message) = $this->_robots->retrieve();
-        if ($status) {
-            $path = $this->_request->getPath();
-            if (!$this->_robots->isPathAllowed($path)) {
-                return [FALSE, 'Blocked by robots.txt'];
-            }
-        } else {
-            $this->_logs[] = 'Failed to retrieve robots.txt: ' . $message;
+        /* Check if path is allowed */
+        $path = $this->_request->getPath();
+        if (!$this->_robots->isPathAllowed($path)) {
+            return [FALSE, 'Blocked by robots.txt'];
         }
 
         /* Run request */
@@ -70,6 +76,10 @@ class Page {
 
     public function getRequest() {
         return $this->_request;
+    }
+
+    public function getRobots() {
+        return $this->_robots;
     }
 
     public function getHashmarkHrefs() {

@@ -11,7 +11,7 @@ class JSON {
     public function __construct(\stdClass $config = NULL) {
         /* Check if config dir not exists  */
         if (empty($config) || empty($config->dir)) {
-            $this->_dir =  __DIR__ . implode(DIRECTORY_SEPARATOR, ['..', '..', '..', 'assets', 'Data']);
+            $this->_dir = implode(DIRECTORY_SEPARATOR, [__DIR__, '..', '..', 'assets', 'Data']);
         } else {
             $this->_dir = $config->dir;
         }
@@ -39,11 +39,11 @@ class JSON {
     }
 
     public function init() {
-        /* Create website dir */
-        $dirWebsite = $this->_getPageDir();
-        if (!file_exists($dirWebsite)) {
-            if (!mkdir($dirWebsite, 0755, TRUE)) {
-                return[FALSE, 'Failed to create website dir'];
+        /* Create page dir */
+        $dirPage= $this->_getPageDir();
+        if (!file_exists($dirPage)) {
+            if (!mkdir($dirPage, 0755, TRUE)) {
+                return[FALSE, 'Failed to create page dir'];
             }
         }
 
@@ -65,19 +65,19 @@ class JSON {
         /* Set hashmark hrefs */
         $pageObj->hashmarkHrefs = [];
         foreach ($page->getHashmarkHrefs() as $hashmarkHref) {
-            $pageObj->hashmarkHrefs[] = $hashmarkHref->toStdClass($request->getSimpleURL());
+            $pageObj->hashmarkHrefs[] = $hashmarkHref->toStdClass($request->getDomainURL());
         }
 
         /* Set internal hrefs */
         $pageObj->internalHrefs = [];
         foreach ($page->getInternalHrefs() as $internalHref) {
-            $pageObj->internalHrefs[] = $internalHref->toStdClass($request->getSimpleURL());
+            $pageObj->internalHrefs[] = $internalHref->toStdClass($request->getDomainURL());
         }
 
         /* Set external hrefs */
         $pageObj->externalHrefs = [];
         foreach ($page->getExternalHrefs() as $externalHref) {
-            $pageObj->externalHrefs[] = $externalHref->toStdClass($request->getSimpleURL());
+            $pageObj->externalHrefs[] = $externalHref->toStdClass($request->getDomainURL());
         }
 
         /* Add page to main object */
