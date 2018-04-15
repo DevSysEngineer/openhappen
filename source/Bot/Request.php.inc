@@ -21,6 +21,7 @@ class Request {
     protected $_simpleURL = NULL;
 
     protected $_httpCode = 0;
+    protected $_charset = 'UTF-8';
     protected $_content = NULL;
 
     public function __construct(string $url) {
@@ -126,7 +127,7 @@ class Request {
 
         /* Set path */
         $path = parse_url($url, PHP_URL_PATH);
-        $object->path = ($path === '/') ? '' : $path;
+        $object->path = ($path === NULL) ? '/' : $path;
 
         /* Set simple URL */
         $object->simpleURL = $object->scheme . '://' . $object->host . '/';
@@ -159,6 +160,12 @@ class Request {
         /* Get the status code */
         $this->_httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
 
+        /* Get charset */
+        $charset = curl_getinfo($ch, CURLINFO_CONTENT_TYPE);
+        if (preg_match('~charset=([-a-z0-9_]+)~i', $charset, $matches)) {
+            $this->_charset = $matches[1];
+        }
+
         /* Get status */
         $status = FALSE;
         $message = '';
@@ -187,19 +194,41 @@ class Request {
         return $this->_host;
     }
 
+    public function getPath() {
+        return $this->_path;
+    }
+
     public function getSimpleURL() {
         return $this->_simpleURL;
     }
 
-    public function convertToSmartDOM() : array {
-        /* Check if content is empty */
+    public function getContent($encoding = 'UTF-8') {
+         /* Check if content is empty */
         if ($this->_content === NULL) {
             return [NULL, 'Content is empty'];
         }
 
+        /* Check if charset is the same as encoding; If not convert content */
+        $content = $this->_content;
+        if ($this->_charset !== $encoding) {
+            mb_internal_encoding($encoding);
+            $content = iconv($encoding, 'UTF-8//IGNORE', $content);
+        }
+
+        /* Success */
+        return [$content, ''];
+    }
+
+    public function convertToSmartDOM($encoding = 'UTF-8') : array {
+        /* Check if content is empty */
+        list($content, $message) = $this->getContent($encoding);
+        if ($content === NULL) {
+            return [NULL, $message];
+        }
+
         /* Return smart DOM object */
         $smartDOM = new SmartDOM;
-        list($status, $message) = $smartDOM->load($this->_content);
+        list($status, $message) = $smartDOM->load($content);
         if (!$status) {
             return [NULL, $message];
         }

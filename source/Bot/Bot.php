@@ -22,10 +22,6 @@ class Bot {
         $this->_dataProvider = $dataProvider;
     }
 
-    protected function _log(string $text) {
-        echo '[' . date('r') . '] ' . $text . PHP_EOL;
-    }
-
     protected function _checkHrefs(Request $request, array $hrefs) {
         /* Get URL's */
         $urls = [];
@@ -52,9 +48,13 @@ class Bot {
         return $result;
     }
 
+    public function log(string $text) {
+        echo '[' . date('r') . '] ' . $text . PHP_EOL;
+    }
+
     public function start(string $url, bool $deep = FALSE) : array {
         /* Create log log */
-        self::_log('Processing ' . $url);
+        $this->log('Processing ' . $url);
 
         /* Check if data provider is NULL */
         if ($this->_dataProvider === NULL) {
@@ -68,7 +68,7 @@ class Bot {
         $result = $page->retrieve();
         list($status, $message) = $result;
         if (!$status) {
-            return [NULL, $message];
+            return [NULL, 'Failed to retieve page: ' . $message];
         }
 
         /* Add page */
@@ -85,10 +85,10 @@ class Bot {
             foreach ($urls as $url) {
                 $result = $this->start($url, FALSE);
                 list($childPage, $message) = $result;
-                if ($childPage !== NULL) {
-                    $internalPages[] = $childPage;
+                if ($childPage === NULL) {
+                    $this->log($message);
                 } else {
-                    return $result;
+                    $internalPages[] = $childPage;
                 }
             }
 
@@ -100,7 +100,7 @@ class Bot {
                     $result = $this->start($url, TRUE);
                     list($childPage, $message) = $result;
                     if ($childPage === NULL) {
-                        return $result;
+                        $this->log($message);
                     }
                 }
             }
@@ -153,7 +153,10 @@ if (!$status) {
 do {
     /* Check if url value is not NULL */
     if (!empty($urlValue)) {
-        $bot->start($urlValue, TRUE);
+        list($status, $message) = $bot->start($urlValue, TRUE);
+        if (!$status) {
+            $bot->log($message);
+        }
         $urlValue = NULL;
     }
 } while (empty($urlValue));

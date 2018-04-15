@@ -8,6 +8,8 @@ class Page {
     protected $_robots = NULL;
     protected $_smartDom = NULL;
 
+    protected $_logs = [];
+
     protected $_hashmarkHrefs = [];
     protected $_internalHrefs = [];
     protected $_externalHrefs = [];
@@ -18,6 +20,17 @@ class Page {
     }
 
     public function retrieve() : array {
+        /* Run request */
+        list($status, $message) = $this->_robots->retrieve();
+        if ($status) {
+            $path = $this->_request->getPath();
+            if (!$this->_robots->isPathAllowed($path)) {
+                return [FALSE, 'Blocked by robots.txt'];
+            }
+        } else {
+            $this->_logs[] = 'Failed to retrieve robots.txt: ' . $message;
+        }
+
         /* Run request */
         list($status, $message) = $this->_request->retrieve();
         if (!$status) {
@@ -49,6 +62,10 @@ class Page {
 
         /* Success */
         return [TRUE, ''];
+    }
+
+    public function getLogs() {
+        return $this->_logs;
     }
 
     public function getRequest() {

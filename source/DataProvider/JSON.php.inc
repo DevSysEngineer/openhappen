@@ -11,7 +11,7 @@ class JSON {
     public function __construct(\stdClass $config = NULL) {
         /* Check if config dir not exists  */
         if (empty($config) || empty($config->dir)) {
-            $this->_dir = __DIR__ . DIRECTORY_SEPARATOR . '..' . DIRECTORY_SEPARATOR . 'Data';
+            $this->_dir =  __DIR__ . implode(DIRECTORY_SEPARATOR, ['..', '..', '..', 'assets', 'Data']);
         } else {
             $this->_dir = $config->dir;
         }
