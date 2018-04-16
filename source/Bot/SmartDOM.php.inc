@@ -4,16 +4,29 @@ namespace OpenHappen\Bot;
 
 class SmartDOM {
 
+    const TYPE_PAGE = 'page';
+    const TYPE_SITEMAP = 'sitemap';
+
+    protected $_type = NULL;
     protected $_domDocument = NULL;
 
-    public function __construct() {
+    public function __construct($type = TYPE_PAGE) {
+        $this->_type = $type;
         $this->_domDocument = new \DOMDocument;
     }
 
     public function load(string $content) {
-        $status = @$this->_domDocument->loadHTML($content);
-        if (!$status) {
-            return [FALSE, 'Failed to load HTML'];
+        /* Load content by type */
+        switch ($this->_type) {
+            case self::TYPE_PAGE:
+                $status = @$this->_domDocument->loadHTML($content);
+                if (!$status) {
+                    return [FALSE, 'Failed to load HTML'];
+                }
+                break;
+            default:
+                /* Failed */
+                return [FALSE, 'Failed to read content because type is unknown'];
         }
 
         /* Success */

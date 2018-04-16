@@ -5,7 +5,7 @@ namespace OpenHappen\Bot;
 class Robots {
 
     const USER_AGENT_ALL = '*';
-    const USER_AGENT_OPENHAPPEN = 'openhappen';
+    const USER_AGENT_OPENHAPPEN_BOT = 'openhappenbot';
 
     const DIRECTIVE_ALLOW = 'allow';
     const DIRECTIVE_DISALLOW = 'disallow';
@@ -28,7 +28,7 @@ class Robots {
     }
 
     public function getAllowedUserAgents() {
-        return [self::USER_AGENT_ALL, self::USER_AGENT_OPENHAPPEN];
+        return [self::USER_AGENT_ALL, self::USER_AGENT_OPENHAPPEN_BOT];
     }
 
     public function getAllowedDirectives() {
@@ -73,16 +73,22 @@ class Robots {
             /* Switch case for special directive that is not linked to group */
             switch ($directive) {
                 case self::DIRECTIVE_SITEMAP:
-                    $this->_sitemap[] = $value;
+                    $this->_sitemap[] = new Sitemap($value);
                     continue;
             }
 
-            /* Check if directive is useragent and value is * or OpenHappen */
-            if ($directive === self::DIRECTIVE_USER_AGENT && in_array($value, $this->getAllowedUserAgents())) {
-                /* Set active user agent */
-                $activeUserAgent = $value;
-                if ($activeUserAgent === self::USER_AGENT_OPENHAPPEN) {
-                    $this->_botFound = TRUE;
+            /* Check if directive is useragent */
+            if ($directive === self::DIRECTIVE_USER_AGENT) {
+                /* Check if value is allowed */
+                if (in_array($value, $this->getAllowedUserAgents())) {
+                    /* Set active user agent */
+                    $activeUserAgent = $value;
+                    if ($activeUserAgent === self::USER_AGENT_OPENHAPPEN) {
+                        $this->_botFound = TRUE;
+                    }
+                } else {
+                    /* Reset active user agent */
+                    $activeUserAgent = NULL;
                 }
 
                 /* Go to next line */

@@ -147,6 +147,9 @@ class Request {
         curl_setopt($ch, CURLOPT_MAXREDIRS, 10);
         curl_setopt($ch, CURLOPT_FOLLOWLOCATION, TRUE);
         curl_setopt($ch, CURLOPT_CONNECTTIMEOUT, 60);
+        curl_setopt($ch, CURLOPT_HTTPHEADER, [
+            'X-Cookies-Accepted: 1'
+        ]);
 
         /* Get HTML page */
         $this->_content = curl_exec($ch);
