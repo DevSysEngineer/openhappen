@@ -83,7 +83,7 @@ class Robots {
                 if (in_array($value, $this->getAllowedUserAgents())) {
                     /* Set active user agent */
                     $activeUserAgent = $value;
-                    if ($activeUserAgent === self::USER_AGENT_OPENHAPPEN) {
+                    if ($activeUserAgent === self::USER_AGENT_OPENHAPPEN_BOT) {
                         $this->_botFound = TRUE;
                     }
                 } else {
@@ -100,7 +100,7 @@ class Robots {
 
             /* Switch case for linking directive to group */
             switch ($activeUserAgent) {
-                case self::USER_AGENT_OPENHAPPEN:
+                case self::USER_AGENT_OPENHAPPEN_BOT:
                     $prefix = '_bot';
                     break;
                 case self::USER_AGENT_ALL:
