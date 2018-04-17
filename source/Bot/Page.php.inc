@@ -10,6 +10,10 @@ class Page {
 
     protected $_logs = [];
 
+    protected $_title = '';
+    protected $_headers = [];
+    protected $_paragraphs = [];
+
     protected $_hashmarkHrefs = [];
     protected $_internalHrefs = [];
     protected $_externalHrefs = [];
@@ -49,11 +53,14 @@ class Page {
             return [FALSE, $message];
         }
 
+        /* Set some data */
+        $this->_title = $smartDOM->getTitle();
+        $this->_headers = $smartDOM->getHeaders();
+        $this->_paragraphs = $smartDOM->getParagraphs();
+        $this->_hashmarkHrefs = $smartDOM->getHrefs([ Request::TYPE_HASHMARK ]);
+
         /* Get request hos */
         $host = $this->_request->getHost();
-
-        /* Set some data */
-        $this->_hashmarkHrefs = $smartDOM->getHrefs([ Request::TYPE_HASHMARK ]);
 
         /* Get domains hrefs */
         $hrefs = $smartDOM->getHrefs([ Request::TYPE_DOMAIN, Request::TYPE_PATH ]);
@@ -80,6 +87,18 @@ class Page {
 
     public function getRobots() {
         return $this->_robots;
+    }
+
+    public function getTitle() {
+        return $this->_title;
+    }
+
+    public function getHeaders() {
+        return $this->_headers;
+    }
+
+    public function getParagraphs() {
+        return $this->_paragraphs;
     }
 
     public function getHashmarkHrefs() {

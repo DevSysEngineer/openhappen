@@ -11,10 +11,13 @@ require_once __DIR__ . '/../DataProvider/JSON.php.inc';
 require_once __DIR__ . '/Href.php.inc';
 require_once __DIR__ . '/SmartDOM.php.inc';
 require_once __DIR__ . '/Request.php.inc';
+require_once __DIR__ . '/Sitemap.php.inc';
 require_once __DIR__ . '/Robots.php.inc';
 require_once __DIR__ . '/Page.php.inc';
 
 class Bot {
+
+    protected $_version = 0;
 
     protected $_dataProvider = NULL;
     protected $_domainExtensionCheck = FALSE;

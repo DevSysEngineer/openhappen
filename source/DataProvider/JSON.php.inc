@@ -6,6 +6,7 @@ use OpenHappen\Bot;
 
 class JSON {
 
+    protected $_version = 'v0.0.1';
     protected $_dir = NULL;
 
     public function __construct(\stdClass $config = NULL) {
@@ -21,7 +22,7 @@ class JSON {
         /* Create dir string */
         $dir = $this->_dir . DIRECTORY_SEPARATOR . 'Pages' . DIRECTORY_SEPARATOR;
         if ($filename !== NULL) {
-            $dir .= $filename . '.json';
+            $dir .= $filename;
         }
 
         /* Return dir */
@@ -30,7 +31,7 @@ class JSON {
 
     protected function _writeToFile(string $path, \stdClass $stdClass) : array {
         /* Write file */
-        if (!file_put_contents($path, json_encode($stdClass), LOCK_EX)) {
+        if (!file_put_contents($path, gzcompress(json_encode($stdClass), 9), LOCK_EX)) {
             return[FALSE, 'Failed to write file'];
         }
 
@@ -52,32 +53,39 @@ class JSON {
     }
 
     public function addPage(Bot\Page $page) : array {
-        /* Create main object */
-        $object = new \stdClass;
-        $object->lastExport = time();
-
         /* Get request*/
         $request = $page->getRequest();
+        $domainURL = $request->getDomainURL();
+
+        /* Create main object */
+        $object = new \stdClass;
+        $object->version = $this->_version;
+        $object->lastExport = time();
+        $object->url = $request->getURL();
 
         /* Create page object */
         $pageObj = new \stdClass;
+        $pageObj->lastModified = 0;
+        $pageObj->title = $page->getTitle();
+        $pageObj->headers = $page->getHeaders();
+        $pageObj->paragraphs = $page->getParagraphs();
 
         /* Set hashmark hrefs */
         $pageObj->hashmarkHrefs = [];
         foreach ($page->getHashmarkHrefs() as $hashmarkHref) {
-            $pageObj->hashmarkHrefs[] = $hashmarkHref->toStdClass($request->getDomainURL());
+            $pageObj->hashmarkHrefs[] = $hashmarkHref->getURL($domainURL);
         }
 
         /* Set internal hrefs */
         $pageObj->internalHrefs = [];
         foreach ($page->getInternalHrefs() as $internalHref) {
-            $pageObj->internalHrefs[] = $internalHref->toStdClass($request->getDomainURL());
+            $pageObj->internalHrefs[] = $internalHref->getURL($domainURL);
         }
 
         /* Set external hrefs */
         $pageObj->externalHrefs = [];
         foreach ($page->getExternalHrefs() as $externalHref) {
-            $pageObj->externalHrefs[] = $externalHref->toStdClass($request->getDomainURL());
+            $pageObj->externalHrefs[] = $externalHref->getURL($domainURL);
         }
 
         /* Add page to main object */

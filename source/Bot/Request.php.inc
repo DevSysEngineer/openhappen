@@ -46,7 +46,7 @@ class Request {
      * @return string
      */
     static public function Base64URLEncode($url) : string {
-        return strtr(base64_encode($url), '+/=', '._-');
+        return strtr(base64_encode(gzcompress($url, 9)), '+/=', '._-');
     }
 
     /**
@@ -57,7 +57,7 @@ class Request {
      * @return string
      */
     static public function Base64URLDecode($url) : string {
-        return base64_decode(strtr($url, '._-', '+/='));
+        return gzuncompress(base64_decode(strtr($url, '._-', '+/=')));
     }
 
     static public function ParseURL(string $url) {
@@ -185,6 +185,10 @@ class Request {
 
         /* Return status */
         return [$status, $message];
+    }
+
+    public function getURL() {
+        return $this->_url;
     }
 
     public function getId() {
