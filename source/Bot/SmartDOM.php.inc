@@ -28,6 +28,12 @@ class SmartDOM {
                     return [FALSE, 'Failed to load HTML'];
                 }
                 break;
+            case self::TYPE_SITEMAP:
+                $status = @$this->_domDocument->loadXML($content);
+                if (!$status) {
+                    return [FALSE, 'Failed to load XML'];
+                }
+                break;
             default:
                 /* Failed */
                 return [FALSE, 'Failed to read content because type is unknown'];
@@ -59,13 +65,52 @@ class SmartDOM {
         $hrefs = [];
         $paths = [];
 
+        /* Get elements */
+        $elements = [];
+        switch ($this->_type) {
+            case self::TYPE_PAGE:
+                $elements = $this->_domDocument->getElementsByTagName('a');
+                break;
+            case self::TYPE_SITEMAP:
+                $elements = $this->_domDocument->getElementsByTagName('url');
+                break;
+        }
+
         /* Get hrefs */
         $elements = $this->_domDocument->getElementsByTagName('a');
         foreach ($elements as $element) {
-            $rawHref = $element->getAttribute('href');
+            /* Get some info */
+            $rawHref = NULL;
+            $lastModified = NULL;
+            switch ($this->_type) {
+                case self::TYPE_SITEMAP:
+                    /* Get array of hrefs */
+                    $argsHref = [];
+                    $childElements = $element->getElementsByTagName('loc');
+                    foreach ($childElements as $childElement) {
+                        $this->extractText($childElement, $argsHref);
+                    }
+
+                    /* Get array of last modified */
+                    $argsLastModified = [];
+                    $childElements = $element->getElementsByTagName('lastmod');
+                    foreach ($childElements as $childElement) {
+                        $this->extractText($childElement, $argsLastModified);
+                    }
+
+                    /* Convert array to string */
+                    $rawHref = implode($argsHref, '');
+                    $lastModified = empty($argsLastModified) ? NULL : implode($argsLastModified, '');
+                    break;
+                case self::TYPE_PAGE:
+                    $rawHref = $element->getAttribute('href');
+                    break;
+            }
+
+            /* Check if raw href is not empry and not already added */
             if (!empty($rawHref) && !in_array($rawHref, $paths)) {
                 /* Create Href  */
-                $hrefObj = new Href($rawHref);
+                $hrefObj = new Href($rawHref, $lastModified);
 
                 /* Get type and check if type is valid or exists in filter */
                 $type = $hrefObj->getType();

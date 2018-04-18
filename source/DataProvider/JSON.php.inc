@@ -62,6 +62,7 @@ class JSON {
         $object->version = $this->_version;
         $object->lastExport = time();
         $object->url = $request->getURL();
+        $object->sitemaps = [];
 
         /* Create page object */
         $pageObj = new \stdClass;

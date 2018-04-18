@@ -8,11 +8,20 @@ class Href {
     protected $_host = NULL;
     protected $_type = FALSE;
 
-    public function __construct(string $url) {
+    protected $_lastModified = 0;
+
+    public function __construct(string $url, string $lastModified = NULL) {
+        /* Set request info */
         $object = Request::ParseURL($url);
         $this->_url = $object->url;
         $this->_host = $object->host;
         $this->_type = $object->type;
+
+        /* Check if lastModified is not empty */
+        if ($lastModified !== NULL) {
+            $dateTimeObj = new \DateTime($lastModified);
+            $this->_lastModified = $dateTimeObj->getTimestamp();
+        }
     }
 
     public function getType() : string {

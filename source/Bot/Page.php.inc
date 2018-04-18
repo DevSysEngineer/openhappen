@@ -20,14 +20,16 @@ class Page {
 
     public function __construct(string $url, Robots $robots = NULL) {
         $this->_request = new Request($url);
-        $this->_robots = empty($robots) ? new Robots($this->_request->getDomainURL()) : $robots;
+        $this->_robots = ($robots === NULL) ? new Robots($this->_request->getDomainURL()) : $robots;
     }
 
     public function init() : array {
-        /* Run request */
-        list($status, $message) = $this->_robots->retrieve();
-        if (!$status) {
-            $this->_logs[] = 'Failed to retrieve robots.txt: ' . $message;
+        /* Only run request if page is not retrieved */
+        if (!$this->_robots->isRetrieved()) {
+            list($status, $message) = $this->_robots->retrieve();
+            if (!$status) {
+                $this->_logs[] = 'Failed to retrieve robots.txt: ' . $message;
+            }
         }
 
         /* Success */

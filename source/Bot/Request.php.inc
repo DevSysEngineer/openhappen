@@ -10,6 +10,8 @@ class Request {
     const TYPE_PATH = 'path';
     const TYPE_UNKNOWN = 'unknown';
 
+    protected $_isRetrieved = FALSE;
+
     protected $_url = NULL;
     protected $_id = NULL;
     protected $_scheme  = NULL;
@@ -138,6 +140,11 @@ class Request {
     }
 
     public function retrieve() : array {
+        /* Check if request is already retrieved */
+        if ($this->_isRetrieved) {
+            return [TRUE, ''];
+        }
+
         /* Init CURL */
         $ch = curl_init($this->_url);
         curl_setopt($ch, CURLOPT_USERAGENT, $this->getUserAgent());
@@ -182,6 +189,9 @@ class Request {
 
         /* Close CURL */
         curl_close($ch);
+
+        /* Data is retrieved */
+        $this->_isRetrieved = TRUE;
 
         /* Return status */
         return [$status, $message];
@@ -228,7 +238,7 @@ class Request {
         return [$content, ''];
     }
 
-    public function convertToSmartDOM($encoding = 'UTF-8') : array {
+    public function convertToSmartDOM(string $type = SmartDOM::TYPE_PAGE, $encoding = 'UTF-8') : array {
         /* Check if content is empty */
         list($content, $message) = $this->getContent($encoding);
         if ($content === NULL) {
@@ -236,7 +246,7 @@ class Request {
         }
 
         /* Return smart DOM object */
-        $smartDOM = new SmartDOM;
+        $smartDOM = new SmartDOM($type);
         list($status, $message) = $smartDOM->load($content);
         if (!$status) {
             return [NULL, $message];

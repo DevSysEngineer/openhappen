@@ -12,8 +12,11 @@ class Robots {
     const DIRECTIVE_SITEMAP = 'sitemap';
     const DIRECTIVE_USER_AGENT = 'user-agent';
 
+    protected $_isRetrieved = FALSE;
+
     protected $_request = NULL;
 
+    protected $_crawlDelay = 10;
     protected $_sitemaps = [];
 
     protected $_botFound = FALSE;
@@ -36,6 +39,11 @@ class Robots {
     }
 
     public function retrieve() : array {
+        /* Check if request is already retrieved */
+        if ($this->_isRetrieved) {
+            return [TRUE, ''];
+        }
+
         /* Run request */
         list($status, $message) = $this->_request->retrieve();
         if (!$status) {
@@ -73,7 +81,7 @@ class Robots {
             /* Switch case for special directive that is not linked to group */
             switch ($directive) {
                 case self::DIRECTIVE_SITEMAP:
-                    $this->_sitemap[] = new Sitemap($value);
+                    $this->_sitemaps[] = new Sitemap($value);
                     continue;
             }
 
@@ -123,6 +131,9 @@ class Robots {
             }
         }
 
+        /* Data is retrieved */
+        $this->_isRetrieved = TRUE;
+
         /* Success */
         return [TRUE, ''];
     }
@@ -154,5 +165,17 @@ class Robots {
 
         /* Allowed */
         return TRUE;
+    }
+
+    public function isRetrieved() {
+        return $this->_isRetrieved;
+    }
+
+    public function getCrawlDelay() {
+        return $this->_crawlDelay;
+    }
+
+    public function getSitemaps() {
+        return $this->_sitemaps;
     }
 }

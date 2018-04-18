@@ -99,6 +99,16 @@ class Bot {
             return [NULL, 'Failed to init page: ' . $message];
         }
 
+        /* Get robots object */
+        $robots = $page->getRobots();
+
+        /* Check if crawl delay is higher than zero */
+        $crawlDelay = $robots->getCrawlDelay();
+        if ($crawlDelay > 0) {
+            $this->_log('Crawl-delay found. Sleep for ' . $crawlDelay . ' seconds');
+            sleep($crawlDelay);
+        }
+
         /* Retrieve page */
         list($status, $message) = $page->retrieve();
         if (!$status) {
@@ -112,9 +122,6 @@ class Bot {
         if ($deep) {
             /* Create empty array for websites */
             $internalPages = [];
-
-            /* Get robots object */
-            $robots = $page->getRobots();
 
             /* Check if internal hrefs exists */
             $internalHrefs = $page->getInternalHrefs();
@@ -138,6 +145,12 @@ class Bot {
                         $this->_log($message);
                     }
                 }
+            }
+
+            /* Loop the sitemaps */
+            $sitemaps = $robots->getSitemaps();
+            foreach ($sitemaps as $sitemap) {
+
             }
         }
 
