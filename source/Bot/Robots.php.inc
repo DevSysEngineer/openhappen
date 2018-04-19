@@ -17,7 +17,7 @@ class Robots {
     protected $_request = NULL;
 
     protected $_crawlDelay = 10;
-    protected $_sitemaps = [];
+    protected $_sitemapHrefs = [];
 
     protected $_botFound = FALSE;
     protected $_botAllows = [];
@@ -81,7 +81,7 @@ class Robots {
             /* Switch case for special directive that is not linked to group */
             switch ($directive) {
                 case self::DIRECTIVE_SITEMAP:
-                    $this->_sitemaps[] = new Sitemap($value);
+                    $this->_sitemapHrefs[] = new Href($value);
                     continue;
             }
 
@@ -175,7 +175,7 @@ class Robots {
         return $this->_crawlDelay;
     }
 
-    public function getSitemaps() {
-        return $this->_sitemaps;
+    public function getSitemapHrefs() {
+        return $this->_sitemapHrefs;
     }
 }

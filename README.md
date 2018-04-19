@@ -18,6 +18,9 @@ User-agent: OpenHappenBot
 Crawl-delay: xxx
 ```
 
+### Cookie wall
+If you are using a cookie wall, please make sure that you wall is not blocking our bot.
+
 ### How to block OpenHappen bot?
 If you wish to block our bot, add the lines below in your `robots.txt`. It will be appreciated if you create an `issue` why you blocking our bot. Maybe we can help each other?
 

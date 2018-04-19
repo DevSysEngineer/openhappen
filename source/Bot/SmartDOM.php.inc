@@ -57,6 +57,57 @@ class SmartDOM {
         }
     }
 
+    public function getSitemapHrefs(array $filters = []) : array {
+        /* Check if filter is active */
+        $activeFilters = !empty($filters);
+
+        /* Create default values */
+        $sitemapHrefs = [];
+        $paths = [];
+
+        /* Get sitemap hrefs */
+        $elements = $this->_domDocument->getElementsByTagName('sitemap');
+        foreach ($elements as $element) {
+            /* Get array of loc */
+            $argsLoc = [];
+            $childElements = $element->getElementsByTagName('loc');
+            foreach ($childElements as $childElement) {
+                $this->extractText($childElement, $argsLoc);
+            }
+
+            /* Check if raw href is not empty and not already exists */
+            $rawLoc = implode($argsLoc, '');
+            $empty = empty($rawLoc);
+            if ($empty || (!$empty && in_array($rawLoc, $paths))) {
+                continue;
+            }
+
+            /* Get array of last modified */
+            $argsLastModified = [];
+            $childElements = $element->getElementsByTagName('lastmod');
+            foreach ($childElements as $childElement) {
+                $this->extractText($childElement, $argsLastModified);
+            }
+
+            /* Convert array to string */
+            $lastModified = empty($argsLastModified) ? NULL : implode($argsLastModified, '');
+
+            /* Create Href  */
+            $hrefObj = new Href($rawLoc, $lastModified);
+
+            /* Get type and check if type is valid or exists in filter */
+            $type = $hrefObj->getType();
+            if ($type !== Request::TYPE_UNKNOWN &&
+                (!$activeFilters || ($activeFilters && in_array($type, $filters)))) {
+                $sitemapHrefs[] = $hrefObj;
+                $paths[] = $rawLoc;
+            }
+        }
+
+        /* Return sitemaps */
+        return $sitemapHrefs;
+    }
+
     public function getHrefs(array $filters = []) : array {
         /* Check if filter is active */
         $activeFilters = !empty($filters);
@@ -79,9 +130,11 @@ class SmartDOM {
         /* Get hrefs */
         $elements = $this->_domDocument->getElementsByTagName('a');
         foreach ($elements as $element) {
-            /* Get some info */
-            $rawHref = NULL;
+            /* Create some default values */
             $lastModified = NULL;
+            $changeFreq = NULL;
+
+            /* Get some info */
             switch ($this->_type) {
                 case self::TYPE_SITEMAP:
                     /* Get array of hrefs */
@@ -91,6 +144,13 @@ class SmartDOM {
                         $this->extractText($childElement, $argsHref);
                     }
 
+                    /* Check if raw href is not empty and not already exists */
+                    $rawHref = implode($argsHref, '');
+                    $empty = empty($rawHref);
+                    if ($empty || (!$empty && in_array($rawHref, $paths))) {
+                        continue;
+                    }
+
                     /* Get array of last modified */
                     $argsLastModified = [];
                     $childElements = $element->getElementsByTagName('lastmod');
@@ -98,27 +158,37 @@ class SmartDOM {
                         $this->extractText($childElement, $argsLastModified);
                     }
 
+                    /* Get change fred */
+                    $argsChangeFreq = [];
+                    $childElements = $element->getElementsByTagName('changefreq');
+                    foreach ($childElements as $childElement) {
+                        $this->extractText($childElement, $argsLastModified);
+                    }
+
                     /* Convert array to string */
-                    $rawHref = implode($argsHref, '');
                     $lastModified = empty($argsLastModified) ? NULL : implode($argsLastModified, '');
+                    $changeFreq = empty($argsChangeFreq) ? NULL : implode($argsChangeFreq, '');
                     break;
                 case self::TYPE_PAGE:
                     $rawHref = $element->getAttribute('href');
+                    $empty = empty($rawHref);
+                    if ($empty || (!$empty && in_array($rawHref, $paths))) {
+                        continue;
+                    }
                     break;
+                default:
+                    continue;
             }
 
-            /* Check if raw href is not empry and not already added */
-            if (!empty($rawHref) && !in_array($rawHref, $paths)) {
-                /* Create Href  */
-                $hrefObj = new Href($rawHref, $lastModified);
+            /* Create Href  */
+            $hrefObj = new Href($rawHref, $lastModified, $changeFreq);
 
-                /* Get type and check if type is valid or exists in filter */
-                $type = $hrefObj->getType();
-                if ($type !== Request::TYPE_UNKNOWN &&
-                    (!$activeFilters || ($activeFilters && in_array($type, $filters)))) {
-                    $hrefs[] = $hrefObj;
-                    $paths[] = $rawHref;
-                }
+            /* Get type and check if type is valid or exists in filter */
+            $type = $hrefObj->getType();
+            if ($type !== Request::TYPE_UNKNOWN &&
+                (!$activeFilters || ($activeFilters && in_array($type, $filters)))) {
+                $hrefs[] = $hrefObj;
+                $paths[] = $rawHref;
             }
         }
 

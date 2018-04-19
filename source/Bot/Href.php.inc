@@ -4,13 +4,21 @@ namespace OpenHappen\Bot;
 
 class Href {
 
+    const CHANGE_FREY_ALWAYS = 'always';
+    const CHANGE_FREY_HOURLY = 'hourly';
+    const CHANGE_FREY_DAILY = 'daily';
+    const CHANGE_FREY_WEEKLY = 'weekly';
+    const CHANGE_FREY_MONTHLY = 'monthly';
+    const CHANGE_FREY_YEARLY = 'yearly';
+    const CHANGE_FREY_NEVER = 'never';
+
     protected $_url = NULL;
     protected $_host = NULL;
     protected $_type = FALSE;
 
     protected $_lastModified = 0;
 
-    public function __construct(string $url, string $lastModified = NULL) {
+    public function __construct(string $url, string $lastModified = NULL, $changeFrey = self::CHANGE_FREY_MONTHLY) {
         /* Set request info */
         $object = Request::ParseURL($url);
         $this->_url = $object->url;
@@ -22,6 +30,23 @@ class Href {
             $dateTimeObj = new \DateTime($lastModified);
             $this->_lastModified = $dateTimeObj->getTimestamp();
         }
+
+        /* Set change frey */
+        if ($changeFrey !== NULL && in_array($changeFrey, $this->getChangeFreqTypes())) {
+            $this->_changeFrey = $changeFrey;
+        }
+    }
+
+    public function getChangeFreqTypes() {
+        return [
+            self::CHANGE_FREY_ALWAYS,
+            self::CHANGE_FREY_HOURLY,
+            self::CHANGE_FREY_DAILY,
+            self::CHANGE_FREY_WEEKLY,
+            self::CHANGE_FREY_MONTHLY,
+            self::CHANGE_FREY_YEARLY,
+            self::CHANGE_FREY_NEVER
+        ];
     }
 
     public function getType() : string {

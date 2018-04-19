@@ -73,6 +73,7 @@ class Request {
         $object->name = NULL;
         $object->extension  = NULL;
         $object->path = NULL;
+        $object->domainURL = NULL;
 
         /* Check if url is hashmark */
         $resultHashmark = (substr($object->url, 0, 1) === '#');

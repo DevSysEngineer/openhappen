@@ -18,15 +18,23 @@ class JSON {
         }
     }
 
-    protected function _getPageDir(string $filename = NULL) : string {
+    protected function _getPathDir(string $type, string $filename = NULL) : string {
         /* Create dir string */
-        $dir = $this->_dir . DIRECTORY_SEPARATOR . 'Pages' . DIRECTORY_SEPARATOR;
+        $dir = $this->_dir . DIRECTORY_SEPARATOR . ucfirst($type) . DIRECTORY_SEPARATOR;
         if ($filename !== NULL) {
             $dir .= $filename;
         }
 
         /* Return dir */
         return $dir;
+    }
+
+    protected function _getPageDir(string $filename = NULL) : string {
+        return $this->_getPathDir('page', $filename);
+    }
+
+    protected function _getSitemapDir(string $filename = NULL) : string {
+        return $this->_getPathDir('sitemap', $filename);
     }
 
     protected function _writeToFile(string $path, \stdClass $stdClass) : array {
@@ -41,10 +49,18 @@ class JSON {
 
     public function init() {
         /* Create page dir */
-        $dirPage= $this->_getPageDir();
+        $dirPage = $this->_getPageDir();
         if (!file_exists($dirPage)) {
             if (!mkdir($dirPage, 0755, TRUE)) {
                 return[FALSE, 'Failed to create page dir'];
+            }
+        }
+
+        /* Create sitemap dir */
+        $dirSitemap = $this->_getSitemapDir();
+        if (!file_exists($dirSitemap)) {
+            if (!mkdir($dirSitemap, 0755, TRUE)) {
+                return[FALSE, 'Failed to create sitemap dir'];
             }
         }
 
@@ -98,5 +114,28 @@ class JSON {
 
     public function retrievePage(string $url) : bool {
         return !file_exists($this->_getPageDir(Bot\Request::Base64URLEncode($url)));
+    }
+
+    public function addSitemap(Bot\Sitemap $sitemap) : array {
+        /* Get request*/
+        $request = $sitemap->getRequest();
+        $domainURL = $request->getDomainURL();
+
+        /* Create main object */
+        $object = new \stdClass;
+        $object->version = $this->_version;
+        $object->lastExport = time();
+        $object->url = $request->getURL();
+        $object->sitemaps = [];
+
+        /* Create sitemap object */
+        $sitemapObj = new \stdClass;
+        $sitemapObj->lastModified = 0;
+
+        /* Add sitemap to main object */
+        $object->sitemap = $sitemapObj;
+
+        /* Success */
+        return $this->_writeToFile($this->_getSitemapDir($request->getId()), $object);
     }
 }

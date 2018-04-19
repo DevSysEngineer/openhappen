@@ -17,6 +17,9 @@ require_once __DIR__ . '/Page.php.inc';
 
 class Bot {
 
+    const TYPE_PAGE = 'page';
+    const TYPE_SITEMAP = 'sitemap';
+
     protected $_version = 0;
 
     protected $_dataProvider = NULL;
@@ -34,13 +37,20 @@ class Bot {
         echo '[' . date('r') . '] ' . $text . PHP_EOL;
     }
 
-    protected function _checkHrefs(Request $request, array $hrefs) {
+    protected function _checkHrefs(string $type,  Request $request, array $hrefs) {
         /* Get URL's */
         $urls = [];
         foreach ($hrefs as $href) {
             $url = $href->getURL($request->getDomainURL());
-            if ($this->_dataProvider->retrievePage($url)) {
-                $urls[] = $url;
+            switch ($type) {
+                case self::TYPE_PAGE:
+                    if ($this->_dataProvider->retrievePage($url)) {
+                        $urls[] = $url;
+                    }
+                    break;
+                case self::TYPE_SITEMAP:
+                    $urls[] = $url;
+                    break;
             }
         }
 
@@ -64,8 +74,19 @@ class Bot {
         do {
             /* Check if url value is not empty */
             if (!empty($url)) {
-                list($status, $message) = $this->progress($url, TRUE);
-                if (!$status) {
+                list($page, $message) = $this->progressPage($url, TRUE);
+                if ($page !== NULL) {
+                    /* Loop sitemaps */
+                    $robots = $page->getRobots();
+                    $sitemapHrefs = $robots->getSitemapHrefs();
+                    $urls = $this->_checkHrefs(self::TYPE_SITEMAP, $page->getRequest(), $sitemapHrefs);
+                    foreach ($urls as $url) {
+                        list($status, $message) = $this->progressSitemap($url, $robots);
+                        if (!$status) {
+                            $this->_log($message);
+                        }
+                    }
+                } else {
                     $this->_log($message);
                 }
                 $url = NULL;
@@ -73,9 +94,46 @@ class Bot {
         } while (empty($url));
     }
 
-    public function progress(string $url, bool $deep = FALSE, Robots $robots = NULL) : array {
+    public function progressSitemap(string $url, Robots $robots) : array {
         /* Create log log */
-        $this->_log('Processing ' . $url);
+        $this->_log('Processing sitemap ' . $url);
+
+        /* Create page object */
+        $sitemap = new Sitemap($url);
+
+        /* Check if crawl delay is higher than zero */
+        $crawlDelay = $robots->getCrawlDelay();
+        if ($crawlDelay > 0) {
+            $this->_log('Crawl-delay found. Sleep for ' . $crawlDelay . ' seconds');
+            sleep($crawlDelay);
+        }
+
+        /* Retrieve page */
+        list($status, $message) = $sitemap->retrieve();
+        if (!$status) {
+            return [NULL, 'Failed to retrieve sitemap: ' . $message];
+        }
+
+        /* Add sitemap */
+        $this->_dataProvider->addSitemap($sitemap);
+
+        /* Get sitemap hrefs */
+        $sitemapHrefs = $sitemap->getSitemapHrefs();
+        $urls = $this->_checkHrefs(self::TYPE_SITEMAP, $sitemap->getRequest(), $sitemapHrefs);
+        foreach ($urls as $url) {
+            list($status, $message) = $this->progressSitemap($url, $robots);
+            if (!$status) {
+                $this->_log($message);
+            }
+        }
+
+        /* Success */
+        return [TRUE, ''];
+    }
+
+    public function progressPage(string $url, bool $deep = FALSE, Robots $robots = NULL) : array {
+        /* Create log log */
+        $this->_log('Processing page ' . $url);
 
         /* Check if data provider is NULL */
         if ($this->_dataProvider === NULL) {
@@ -125,9 +183,9 @@ class Bot {
 
             /* Check if internal hrefs exists */
             $internalHrefs = $page->getInternalHrefs();
-            $urls = $this->_checkHrefs($request, $internalHrefs);
+            $urls = $this->_checkHrefs(self::TYPE_PAGE, $request, $internalHrefs);
             foreach ($urls as $url) {
-                list($childPage, $message) = $this->progress($url, FALSE, $robots);
+                list($childPage, $message) = $this->progressPage($url, FALSE, $robots);
                 if ($childPage === NULL) {
                     $this->_log($message);
                 } else {
@@ -138,19 +196,13 @@ class Bot {
             /* Run deeper */
             foreach ($internalPages as $internalPage) {
                 $internalHrefs = $internalPage->getInternalHrefs();
-                $urls = $this->_checkHrefs($internalPage->getRequest(), $internalHrefs);
+                $urls = $this->_checkHrefs(self::TYPE_PAGE, $internalPage->getRequest(), $internalHrefs);
                 foreach ($urls as $url) {
-                    list($childPage, $message) = $this->progress($url, TRUE, $robots);
+                    list($childPage, $message) = $this->progressPage($url, TRUE, $robots);
                     if ($childPage === NULL) {
                         $this->_log($message);
                     }
                 }
-            }
-
-            /* Loop the sitemaps */
-            $sitemaps = $robots->getSitemaps();
-            foreach ($sitemaps as $sitemap) {
-
             }
         }
 

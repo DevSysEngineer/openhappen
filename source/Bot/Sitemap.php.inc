@@ -5,7 +5,9 @@ namespace OpenHappen\Bot;
 class Sitemap {
 
     protected $_request = NULL;
-    protected $_sitemaps = [];
+
+    protected $_sitemapHrefs = [];
+    protected $_hrefs = [];
 
     public function __construct(string $url) {
         $this->_request = new Request($url);
@@ -25,10 +27,22 @@ class Sitemap {
         }
 
         /* Get some data */
-        $this->_sitemaps = $smartDOM->getSitemaps();
-        $this->_herfs = $smartDOM->getHrefs([ Request::TYPE_DOMAIN, Request::TYPE_PATH ]);
+        $this->_sitemapHrefs = $smartDOM->getSitemapHrefs([ Request::TYPE_DOMAIN, Request::TYPE_PATH ]);
+        $this->_hrefs = $smartDOM->getHrefs([ Request::TYPE_DOMAIN, Request::TYPE_PATH ]);
 
         /* Success */
         return [TRUE, ''];
+    }
+
+    public function getRequest() {
+        return $this->_request;
+    }
+
+    public function getSitemapHrefs() {
+        return $this->_sitemapHrefs;
+    }
+
+    public function getHrefs() {
+        return $this->_herfs;
     }
 }
