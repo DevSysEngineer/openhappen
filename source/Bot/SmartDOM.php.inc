@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace OpenHappen\Bot;
 
 class SmartDOM {
@@ -23,12 +25,24 @@ class SmartDOM {
         /* Load content by type */
         switch ($this->_type) {
             case self::TYPE_PAGE:
+                /* Check if first char are html */
+                if (substr($content, 0, 5) !== '<html') {
+                    return [FALSE, 'Failed to load HTML'];
+                }
+
+                /* Load HTML */
                 $status = @$this->_domDocument->loadHTML($content);
                 if (!$status) {
                     return [FALSE, 'Failed to load HTML'];
                 }
                 break;
             case self::TYPE_SITEMAP:
+                /* Check if first char are html */
+                if (substr($content, 0, 5) !== '<?xml') {
+                    return [FALSE, 'Failed to load XML'];
+                }
+
+                /* Load XML */
                 $status = @$this->_domDocument->loadXML($content);
                 if (!$status) {
                     return [FALSE, 'Failed to load XML'];
@@ -128,7 +142,6 @@ class SmartDOM {
         }
 
         /* Get hrefs */
-        $elements = $this->_domDocument->getElementsByTagName('a');
         foreach ($elements as $element) {
             /* Create some default values */
             $lastModified = NULL;
@@ -148,7 +161,7 @@ class SmartDOM {
                     $rawHref = implode($argsHref, '');
                     $empty = empty($rawHref);
                     if ($empty || (!$empty && in_array($rawHref, $paths))) {
-                        continue;
+                        continue 2;
                     }
 
                     /* Get array of last modified */
@@ -173,11 +186,11 @@ class SmartDOM {
                     $rawHref = $element->getAttribute('href');
                     $empty = empty($rawHref);
                     if ($empty || (!$empty && in_array($rawHref, $paths))) {
-                        continue;
+                        continue 2;
                     }
                     break;
                 default:
-                    continue;
+                    continue 2;
             }
 
             /* Create Href  */

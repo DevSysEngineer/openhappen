@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace OpenHappen\Bot;
 
 class Robots {
@@ -81,7 +83,7 @@ class Robots {
             /* Switch case for special directive that is not linked to group */
             switch ($directive) {
                 case self::DIRECTIVE_SITEMAP:
-                    $this->_sitemapHrefs[] = new Href($value);
+                    $this->_sitemapHrefs[] = new Href($value, NULL, Href::CHANGE_FREY_ALWAYS);
                     continue;
             }
 

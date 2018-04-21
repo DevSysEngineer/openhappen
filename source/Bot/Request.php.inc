@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace OpenHappen\Bot;
 
 class Request {
@@ -106,8 +108,14 @@ class Request {
 
         /* Set some data */
         $object->scheme = parse_url($object->url, PHP_URL_SCHEME);
-        $object->host = parse_url($object->url, PHP_URL_HOST);
         $object->port = parse_url($object->url, PHP_URL_PORT);
+
+        /* Check if host is NULL */
+        $object->host = parse_url($object->url, PHP_URL_HOST);
+        if ($object->host == NULL) {
+            $object->type = self::TYPE_UNKNOWN;
+            return $object;
+        }
 
         /* Check if host is valid domain name */
         $domain_validation = '/((http|https)\:\/\/)?[a-zA-Z0-9\.\/\?\:@\-_=#]+\.([a-zA-Z0-9\&\.\/\?\:@\-_=#])*/';

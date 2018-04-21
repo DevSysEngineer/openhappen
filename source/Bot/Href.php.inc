@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace OpenHappen\Bot;
 
 class Href {
@@ -16,9 +18,10 @@ class Href {
     protected $_host = NULL;
     protected $_type = FALSE;
 
-    protected $_lastModified = 0;
+    protected $_lastModified = NULL;
+    protected $_changeFrey = 'monthly';
 
-    public function __construct(string $url, string $lastModified = NULL, $changeFrey = self::CHANGE_FREY_MONTHLY) {
+    public function __construct(string $url, $lastModified = NULL, $changeFrey = self::CHANGE_FREY_MONTHLY) {
         /* Set request info */
         $object = Request::ParseURL($url);
         $this->_url = $object->url;
@@ -27,8 +30,13 @@ class Href {
 
         /* Check if lastModified is not empty */
         if ($lastModified !== NULL) {
-            $dateTimeObj = new \DateTime($lastModified);
-            $this->_lastModified = $dateTimeObj->getTimestamp();
+            try {
+                $this->_lastModified = new \DateTime($lastModified);
+            } catch (\Exception $e) {
+                $this->_lastModified = new \DateTime;
+            }
+        } else {
+            $this->_lastModified = new \DateTime;
         }
 
         /* Set change frey */
@@ -53,6 +61,10 @@ class Href {
         return $this->_type;
     }
 
+    public function getChangeFreq() {
+        return $this->_changeFrey;
+    }
+
     public function getURL(string $url) : string {
         switch ($this->_type) {
             case Request::TYPE_PATH:
@@ -72,6 +84,10 @@ class Href {
 
     public function getInternal(string $host) : bool {
         return (in_array($this->_type, [Request::TYPE_PATH, Request::TYPE_HASHMARK]) || $this->_host === $host);
+    }
+
+    public function getNextExport() {
+        return 0;
     }
 
     public function toStdClass(string $domainURL) : \stdClass {

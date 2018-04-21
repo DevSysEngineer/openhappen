@@ -1,19 +1,21 @@
 <?php
 
+declare(strict_types=1);
+
 namespace OpenHappen\Bot;
 
-class Sitemap {
-
-    protected $_request = NULL;
+class Sitemap extends Location {
 
     protected $_sitemapHrefs = [];
     protected $_hrefs = [];
 
-    public function __construct(string $url) {
-        $this->_request = new Request($url);
-    }
-
     public function retrieve() : array {
+        /* Call parent method */
+        list($status, $message) = parent::retrieve();
+        if (!$status) {
+            return [FALSE, $message];
+        }
+
         /* Run request */
         list($status, $message) = $this->_request->retrieve();
         if (!$status) {
@@ -34,15 +36,11 @@ class Sitemap {
         return [TRUE, ''];
     }
 
-    public function getRequest() {
-        return $this->_request;
-    }
-
     public function getSitemapHrefs() {
         return $this->_sitemapHrefs;
     }
 
     public function getHrefs() {
-        return $this->_herfs;
+        return $this->_hrefs;
     }
 }

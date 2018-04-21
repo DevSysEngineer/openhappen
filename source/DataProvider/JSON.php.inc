@@ -18,23 +18,15 @@ class JSON {
         }
     }
 
-    protected function _getPathDir(string $type, string $filename = NULL) : string {
+    protected function _getLocationDir(string $filename = NULL) : string {
         /* Create dir string */
-        $dir = $this->_dir . DIRECTORY_SEPARATOR . ucfirst($type) . DIRECTORY_SEPARATOR;
+        $dir = $this->_dir . DIRECTORY_SEPARATOR . 'Location' . DIRECTORY_SEPARATOR;
         if ($filename !== NULL) {
             $dir .= $filename;
         }
 
         /* Return dir */
         return $dir;
-    }
-
-    protected function _getPageDir(string $filename = NULL) : string {
-        return $this->_getPathDir('page', $filename);
-    }
-
-    protected function _getSitemapDir(string $filename = NULL) : string {
-        return $this->_getPathDir('sitemap', $filename);
     }
 
     protected function _writeToFile(string $path, \stdClass $stdClass) : array {
@@ -47,20 +39,35 @@ class JSON {
         return [TRUE, ''];
     }
 
-    public function init() {
-        /* Create page dir */
-        $dirPage = $this->_getPageDir();
-        if (!file_exists($dirPage)) {
-            if (!mkdir($dirPage, 0755, TRUE)) {
-                return[FALSE, 'Failed to create page dir'];
-            }
+    protected function _getContent(string $path) : array {
+        /* Get raw content */
+        $rawContent = @file_get_contents($path);
+        if ($rawContent === FALSE) {
+            return [FALSE, 'File not exists'];
         }
 
-        /* Create sitemap dir */
-        $dirSitemap = $this->_getSitemapDir();
-        if (!file_exists($dirSitemap)) {
-            if (!mkdir($dirSitemap, 0755, TRUE)) {
-                return[FALSE, 'Failed to create sitemap dir'];
+        /* Convert raw content to readable content */
+        $uncompressContent = @gzuncompress($rawContent);
+        if ($uncompressContent === FALSE) {
+            return [FALSE, 'Failed to uncompress content'];
+        }
+
+        /* Convert uncompress content to object */
+        $object = @json_decode($uncompressContent);
+        if ($object === FALSE) {
+            return [FALSE, 'Failed to decode content'];
+        }
+
+        /* Return object */
+        return [ $object, '' ];
+    }
+
+    public function init() {
+        /* Create page dir */
+        $dirLocation = $this->_getLocationDir();
+        if (!file_exists($dirLocation)) {
+            if (!mkdir($dirLocation, 0755, TRUE)) {
+                return[FALSE, 'Failed to create location dir'];
             }
         }
 
@@ -68,74 +75,87 @@ class JSON {
         return [TRUE, ''];
     }
 
-    public function addPage(Bot\Page $page) : array {
+    public function addLocation(Bot\Location $location, Bot\Href $href) : array {
         /* Get request*/
-        $request = $page->getRequest();
+        $request = $location->getRequest();
         $domainURL = $request->getDomainURL();
 
         /* Create main object */
         $object = new \stdClass;
         $object->version = $this->_version;
         $object->lastExport = time();
+        $object->nextExport = 0;
+        $object->changeFrey = $href->getChangeFreq();
         $object->url = $request->getURL();
-        $object->sitemaps = [];
 
         /* Create page object */
-        $pageObj = new \stdClass;
-        $pageObj->lastModified = 0;
-        $pageObj->title = $page->getTitle();
-        $pageObj->headers = $page->getHeaders();
-        $pageObj->paragraphs = $page->getParagraphs();
-
-        /* Set hashmark hrefs */
-        $pageObj->hashmarkHrefs = [];
-        foreach ($page->getHashmarkHrefs() as $hashmarkHref) {
-            $pageObj->hashmarkHrefs[] = $hashmarkHref->getURL($domainURL);
-        }
-
-        /* Set internal hrefs */
-        $pageObj->internalHrefs = [];
-        foreach ($page->getInternalHrefs() as $internalHref) {
-            $pageObj->internalHrefs[] = $internalHref->getURL($domainURL);
-        }
-
-        /* Set external hrefs */
-        $pageObj->externalHrefs = [];
-        foreach ($page->getExternalHrefs() as $externalHref) {
-            $pageObj->externalHrefs[] = $externalHref->getURL($domainURL);
-        }
+        $locationObj = new \stdClass;
+        $locationObj->title = $location->getTitle();
+        $locationObj->headers = $location->getHeaders();
+        $locationObj->paragraphs = $location->getParagraphs();
 
         /* Add page to main object */
-        $object->page = $pageObj;
+        $object->location = $locationObj;
 
         /* Success */
-        return $this->_writeToFile($this->_getPageDir($request->getId()), $object);
+        return $this->_writeToFile($this->_getLocationDir($request->getId()), $object);
     }
 
-    public function retrievePage(string $url) : bool {
-        return !file_exists($this->_getPageDir(Bot\Request::Base64URLEncode($url)));
-    }
+    public function changeLocationValues(string $url, array $args) : array {
+        /* Get content */
+        $path = $this->_getLocationDir(Bot\Request::Base64URLEncode($url));
+        list($object, $message) = $this->_getContent($path);
+        if ($object === NULL) {
+            return [FALSE, $message];
+        }
 
-    public function addSitemap(Bot\Sitemap $sitemap) : array {
-        /* Get request*/
-        $request = $sitemap->getRequest();
-        $domainURL = $request->getDomainURL();
-
-        /* Create main object */
-        $object = new \stdClass;
-        $object->version = $this->_version;
-        $object->lastExport = time();
-        $object->url = $request->getURL();
-        $object->sitemaps = [];
-
-        /* Create sitemap object */
-        $sitemapObj = new \stdClass;
-        $sitemapObj->lastModified = 0;
-
-        /* Add sitemap to main object */
-        $object->sitemap = $sitemapObj;
+        /* Set values */
+        foreach ($args as $key => $value) {
+            $object->{$key} = $value;
+        }
 
         /* Success */
-        return $this->_writeToFile($this->_getSitemapDir($request->getId()), $object);
+        return $this->_writeToFile($path, $object);
+    }
+
+    public function changeLocationValue(string $url, string $key, $value) : array {
+        /* Get content */
+        $path = $this->_getLocationDir(Bot\Request::Base64URLEncode($url));
+        list($object, $message) = $this->_getContent($path);
+        if ($object === NULL) {
+            return [FALSE, $message];
+        }
+
+        /* Change data */
+        $object->{$key} = $value;
+
+        /* Success */
+        return $this->_writeToFile($path, $object);
+    }
+
+    public function retrieveLocation(string $url) : bool {
+        /* Check if location not exists */
+        if (!$this->existsLocation($url)) {
+            return TRUE;
+        }
+
+        /* Get content */
+        $path = $this->_getLocationDir(Bot\Request::Base64URLEncode($url));
+        list($object, $message) = $this->_getContent($path);
+        if ($object === NULL) {
+            return [FALSE, $message];
+        }
+
+        /* Check if location always must be checked */
+        if ($object->changeFrey === Bot\Href::CHANGE_FREY_ALWAYS) {
+            return TRUE;
+        }
+
+
+        return FALSE;
+    }
+
+    public function existsLocation(string $url) : bool {
+        return file_exists($this->_getLocationDir(Bot\Request::Base64URLEncode($url)));
     }
 }

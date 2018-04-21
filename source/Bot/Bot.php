@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace OpenHappen\Bot;
 
 use OpenHappen\DataProvider;
@@ -11,8 +13,9 @@ require_once __DIR__ . '/../DataProvider/JSON.php.inc';
 require_once __DIR__ . '/Href.php.inc';
 require_once __DIR__ . '/SmartDOM.php.inc';
 require_once __DIR__ . '/Request.php.inc';
-require_once __DIR__ . '/Sitemap.php.inc';
 require_once __DIR__ . '/Robots.php.inc';
+require_once __DIR__ . '/Location.php.inc';
+require_once __DIR__ . '/Sitemap.php.inc';
 require_once __DIR__ . '/Page.php.inc';
 
 class Bot {
@@ -37,27 +40,6 @@ class Bot {
         echo '[' . date('r') . '] ' . $text . PHP_EOL;
     }
 
-    protected function _checkHrefs(string $type,  Request $request, array $hrefs) {
-        /* Get URL's */
-        $urls = [];
-        foreach ($hrefs as $href) {
-            $url = $href->getURL($request->getDomainURL());
-            switch ($type) {
-                case self::TYPE_PAGE:
-                    if ($this->_dataProvider->retrievePage($url)) {
-                        $urls[] = $url;
-                    }
-                    break;
-                case self::TYPE_SITEMAP:
-                    $urls[] = $url;
-                    break;
-            }
-        }
-
-        /* Return URL's */
-        return $urls;
-    }
-
     public function init() : array {
         /* Init data provider */
         $result = $this->_dataProvider->init();
@@ -72,34 +54,95 @@ class Bot {
 
     public function start($url) {
         do {
-            /* Check if url value is not empty */
-            if (!empty($url)) {
-                list($page, $message) = $this->progressPage($url, TRUE);
-                if ($page !== NULL) {
-                    /* Loop sitemaps */
-                    $robots = $page->getRobots();
-                    $sitemapHrefs = $robots->getSitemapHrefs();
-                    $urls = $this->_checkHrefs(self::TYPE_SITEMAP, $page->getRequest(), $sitemapHrefs);
-                    foreach ($urls as $url) {
-                        list($status, $message) = $this->progressSitemap($url, $robots);
+            /* Check if url value is empty */
+            if (empty($url)) {
+                $url = NULL;
+                continue;
+            }
+
+            $href = new Href($url);
+            try {
+                /* Progress page */
+                list($page, $message) = $this->progressPage($url, $href, TRUE);
+                if ($page === NULL) {
+                    /* Write log */
+                    $this->_log($message);
+
+                    /* Stop here */
+                    $url = NULL;
+                    continue;
+                }
+
+                /* Get robots object */
+                $robots = $page->getRobots();
+
+                /* Get request and domain URL */
+                $request = $page->getRequest();
+                $domainURL = $request->getDomainURL();
+
+                /* Get sitemaps from robots.txt */
+                $sitemapHrefs = $robots->getSitemapHrefs();
+                foreach ($sitemapHrefs as $sitemapHref) {
+                    /* Get href url */
+                    $url = $sitemapHref->getURL($domainURL);
+
+                    /* Check if location already exists */
+                    if ($this->_dataProvider->existsLocation($url)) {
+                        /* Set Href information from robots.txt */
+                        list($status, $message) = $this->_dataProvider->changeLocationValues($url, [
+                            'nextExport' => $sitemapHref->getNextExport(),
+                            'changeFrey' => $sitemapHref->getChangeFreq()
+                        ]);
+
+                        /* Check status */
+                        if (!$status) {
+                            $this->_log($message);
+                            continue;
+                        }
+                    }
+
+                    /* Check if location can be retrieved */
+                    if ($this->_dataProvider->retrieveLocation($url)) {
+                        list($status, $message) = $this->progressSitemap($url, $href, $robots);
                         if (!$status) {
                             $this->_log($message);
                         }
                     }
-                } else {
-                    $this->_log($message);
                 }
-                $url = NULL;
+            } catch (\Exception $e) {
+                /* Failed */
+                $this->_log($e);
             }
+
+            /* Reset URL */
+            $url = NULL;
         } while (empty($url));
     }
 
-    public function progressSitemap(string $url, Robots $robots) : array {
+    public function progressSitemap(string $url, Href $href, Robots $robots) : array {
         /* Create log log */
         $this->_log('Processing sitemap ' . $url);
 
         /* Create page object */
-        $sitemap = new Sitemap($url);
+        $sitemap = new Sitemap($url, $robots);
+
+        /* Get request */
+        $request = $sitemap->getRequest();
+        $domainURL = $request->getDomainURL();
+
+        /* Check if page url is not same as href url */
+        if ($url !== $href->getURL($domainURL)) {
+            return [NULL, 'Href url is different than sitemap url'];
+        }
+
+        /* Init page */
+        list($status, $message) = $sitemap->init();
+        if (!$status) {
+            return [NULL, 'Failed to init sitemap: ' . $message];
+        }
+
+        /* Get robots object */
+        $robots = $sitemap->getRobots();
 
         /* Check if crawl delay is higher than zero */
         $crawlDelay = $robots->getCrawlDelay();
@@ -115,15 +158,68 @@ class Bot {
         }
 
         /* Add sitemap */
-        $this->_dataProvider->addSitemap($sitemap);
+        $this->_dataProvider->addLocation($sitemap, $href);
+
+        /* Check if hrefs exists */
+        $hrefs = $sitemap->getHrefs();
+        foreach ($hrefs as $href) {
+            $url = $href->getURL($domainURL);
+            if ($this->_dataProvider->existsLocation($url)) {
+                if (!$this->_dataProvider->retrieveLocation($url)) {
+                    /* Set Href information from robots.txt */
+                    list($status, $message) = $this->_dataProvider->changeLocationValues($url, [
+                        'nextExport' => $href->getNextExport(),
+                        'changeFrey' => $href->getChangeFreq()
+                    ]);
+
+                    /* Check status */
+                    if (!$status) {
+                        $this->_log($message);
+                    }
+                } else {
+                    /* Progress page with href information from the sitemap */
+                    list($childPage, $message) = $this->progressPage($url, $href, FALSE, $robots);
+                    if ($childPage === NULL) {
+                        $this->_log($message);
+                    }
+                }
+            } else {
+                /* Progress page with href information from the sitemap */
+                list($childPage, $message) = $this->progressPage($url, $href, FALSE, $robots);
+                if ($childPage === NULL) {
+                    $this->_log($message);
+                }
+            }
+        }
 
         /* Get sitemap hrefs */
         $sitemapHrefs = $sitemap->getSitemapHrefs();
-        $urls = $this->_checkHrefs(self::TYPE_SITEMAP, $sitemap->getRequest(), $sitemapHrefs);
-        foreach ($urls as $url) {
-            list($status, $message) = $this->progressSitemap($url, $robots);
-            if (!$status) {
-                $this->_log($message);
+        foreach ($sitemapHrefs as $sitemapHref) {
+            $url = $sitemapHref->getURL($domainURL);
+            if ($this->_dataProvider->existsLocation($url)) {
+                if (!$this->_dataProvider->retrieveLocation($url)) {
+                    /* Set Href information from robots.txt */
+                    list($status, $message) = $this->_dataProvider->changeLocationValues($url, [
+                        'nextExport' => $sitemapHref->getNextExport(),
+                        'changeFrey' => $sitemapHref->getChangeFreq()
+                    ]);
+
+                    /* Check status */
+                    if (!$status) {
+                        $this->_log($message);
+                    }
+                } else {
+                    list($status, $message) = $this->progressSitemap($url, $sitemapHref, $robots);
+                    if (!$status) {
+                        $this->_log($message);
+                    }
+                }
+            } else {
+                /* Progress page with href information from the sitemap */
+                list($status, $message) = $this->progressSitemap($url, $sitemapHref, $robots);
+                if (!$status) {
+                    $this->_log($message);
+                }
             }
         }
 
@@ -131,7 +227,7 @@ class Bot {
         return [TRUE, ''];
     }
 
-    public function progressPage(string $url, bool $deep = FALSE, Robots $robots = NULL) : array {
+    public function progressPage(string $url, Href $href, bool $deep = FALSE, Robots $robots = NULL) : array {
         /* Create log log */
         $this->_log('Processing page ' . $url);
 
@@ -145,6 +241,12 @@ class Bot {
 
         /* Get request */
         $request = $page->getRequest();
+        $domainURL = $request->getDomainURL();
+
+        /* Check if page url is not same as href url */
+        if ($url !== $href->getURL($domainURL)) {
+            return [NULL, 'Href url is different than page url'];
+        }
 
         /* Check if domain extension check is enabled */
         if ($this->_domainExtensionCheck && !in_array($request->getExtension(), $this->_domainExtensions)) {
@@ -174,33 +276,42 @@ class Bot {
         }
 
         /* Add page */
-        $this->_dataProvider->addPage($page);
+        $this->_dataProvider->addLocation($page, $href);
 
         /* Check if deep is TRUE */
         if ($deep) {
-            /* Create empty array for websites */
+            /* Create empty array */
             $internalPages = [];
 
             /* Check if internal hrefs exists */
             $internalHrefs = $page->getInternalHrefs();
-            $urls = $this->_checkHrefs(self::TYPE_PAGE, $request, $internalHrefs);
-            foreach ($urls as $url) {
-                list($childPage, $message) = $this->progressPage($url, FALSE, $robots);
-                if ($childPage === NULL) {
-                    $this->_log($message);
-                } else {
-                    $internalPages[] = $childPage;
+            foreach ($internalHrefs as $internalHref) {
+                $url = $internalHref->getURL($domainURL);
+                if ($this->_dataProvider->retrieveLocation($url)) {
+                    list($childPage, $message) = $this->progressPage($url, $internalHref, FALSE, $robots);
+                    if ($childPage === NULL) {
+                        $this->_log($message);
+                    } else {
+                        $internalPages[] = $childPage;
+                    }
                 }
             }
 
             /* Run deeper */
             foreach ($internalPages as $internalPage) {
                 $internalHrefs = $internalPage->getInternalHrefs();
-                $urls = $this->_checkHrefs(self::TYPE_PAGE, $internalPage->getRequest(), $internalHrefs);
-                foreach ($urls as $url) {
-                    list($childPage, $message) = $this->progressPage($url, TRUE, $robots);
-                    if ($childPage === NULL) {
-                        $this->_log($message);
+                foreach ($internalHrefs as $internalHref) {
+                    /* Get domain URL */
+                    $request = $internalPage->getRequest();
+                    $domainURL = $request->getDomainURL();
+
+                    /* Check if page already is retrieved */
+                    $url = $internalHref->getURL($domainURL);
+                    if ($this->_dataProvider->retrieveLocation($url)) {
+                        list($childPage, $message) = $this->progressPage($url, $internalHref, TRUE, $robots);
+                        if ($childPage === NULL) {
+                            $this->_log($message);
+                        }
                     }
                 }
             }
