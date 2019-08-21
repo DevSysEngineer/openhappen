@@ -8,6 +8,7 @@ class JSON {
 
     protected $_version = 'v0.0.1';
     protected $_dir = NULL;
+    protected $_timezone = NULL;
 
     public function __construct(\stdClass $config = NULL) {
         /* Check if config dir not exists  */
@@ -16,6 +17,9 @@ class JSON {
         } else {
             $this->_dir = $config->dir;
         }
+
+        /* Set UTC timezone */
+        $this->_timezone = new DateTimeZone('UTC');
     }
 
     protected function _getLocationDir(string $filename = NULL) : string {
@@ -59,7 +63,7 @@ class JSON {
         }
 
         /* Return object */
-        return [ $object, '' ];
+        return [$object, ''];
     }
 
     public function init() {
@@ -78,7 +82,6 @@ class JSON {
     public function addLocation(Bot\Location $location, Bot\Href $href) : array {
         /* Get request*/
         $request = $location->getRequest();
-        $domainURL = $request->getDomainURL();
 
         /* Create main object */
         $object = new \stdClass;
@@ -151,8 +154,36 @@ class JSON {
             return TRUE;
         }
 
+        /* Create date object */
+        $dateTime = new DateTime('now', $this->_timezone);
+        $currentTimestamp = $dateTime->getTimestamp();
 
-        return FALSE;
+        /* Change current date/time to last export date/time */
+        $dateTime->setTimestamp($object->lastExport);
+
+        /* Get current time stamp */
+        switch ($object->changeFrey) {
+            case Bot\Href::CHANGE_FREY_HOURLY:
+                $dateTime->modify('+1 hour');
+                break;
+            case Bot\Href::CHANGE_FREY_DAILY:
+                $dateTime->modify('+1 day');
+                break;
+            case Bot\Href::CHANGE_FREY_WEEKLY:
+                $dateTime->modify('+1 week');
+                break;
+            case Bot\Href::CHANGE_FREY_MONTHLY:
+                $dateTime->modify('+1 month');
+                break;
+            case Bot\Href::CHANGE_FREY_YEARLY:
+                $dateTime->modify('+1 year');
+                break;
+            default:
+                return FALSE;
+        }
+
+        /* Check if last export time with modified data is not newer than current time */
+        return ($dateTime->getTimestamp() < $currentTimestamp);
     }
 
     public function existsLocation(string $url) : bool {

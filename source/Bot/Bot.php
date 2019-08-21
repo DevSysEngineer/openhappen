@@ -28,6 +28,7 @@ class Bot {
     protected $_dataProvider = NULL;
     protected $_domainExtensionCheck = FALSE;
     protected $_domainExtensions = [];
+    protected $_href = NULL;
 
     public function __construct($dataProvider, array $domainExtensions = []) {
         $this->_dataProvider = $dataProvider;
@@ -60,10 +61,10 @@ class Bot {
                 continue;
             }
 
-            $href = new Href($url);
+            $this->_href = new Href($url);
             try {
                 /* Progress page */
-                list($page, $message) = $this->progressPage($url, $href, TRUE);
+                list($page, $message) = $this->progressPage($url, $this->_href, TRUE);
                 if ($page === NULL) {
                     /* Write log */
                     $this->_log($message);
@@ -251,6 +252,18 @@ class Bot {
         /* Check if domain extension check is enabled */
         if ($this->_domainExtensionCheck && !in_array($request->getExtension(), $this->_domainExtensions)) {
             return [NULL, 'Extension is different than the required extensions'];
+        }
+
+        /* Before we are goging to init the page, we need to check if the page is not content */
+        if (!$request->isContent()) {
+            /* Create some log */
+            $this->_log('Page is not content, try to connect with domain URL');
+
+            /* Override current href */
+            $this->_href = new Href($domainURL);
+
+            /* Stop here, and try again with domain url */
+            return $this->progressPage($domainURL, $this->_href, TRUE);
         }
 
         /* Init page */

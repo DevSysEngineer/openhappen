@@ -12,6 +12,10 @@ class Request {
     const TYPE_PATH = 'path';
     const TYPE_UNKNOWN = 'unknown';
 
+    const FORMAT_ROBOTS = 'robots';
+    const FORMAT_SITEMAP = 'sitemap';
+    const FORMAT_CONTENT = 'content';
+
     protected $_isRetrieved = FALSE;
 
     protected $_url = NULL;
@@ -23,6 +27,7 @@ class Request {
     protected $_port = NULL;
     protected $_type = NULL;
     protected $_path = NULL;
+    protected $_format = NULL;
     protected $_domainURL = NULL;
 
     protected $_httpCode = 0;
@@ -40,6 +45,7 @@ class Request {
         $this->_port = $object->port;
         $this->_type = $object->type;
         $this->_path = $object->path;
+        $this->_format = $object->format;
         $this->_domainURL = $object->domainURL;
     }
 
@@ -75,6 +81,7 @@ class Request {
         $object->name = NULL;
         $object->extension  = NULL;
         $object->path = NULL;
+        $object->format = self::FORMAT_CONTENT;
         $object->domainURL = NULL;
 
         /* Check if url is hashmark */
@@ -94,7 +101,30 @@ class Request {
             $explURL = explode($delimiter, $object->url);
             if (!empty($explURL)) {
                 if (!empty($explURL[1])) {
+                    /* Set type */
                     $object->type = $validType;
+
+                    /* Check if type is page */
+                    if ($validType === self::TYPE_PATH) {
+
+                        /* Check if page is sitemap or robots.txt */
+                        $indexURL = count($explURL) - 1;
+                        if ($indexURL > 0 && !empty($explURL[$indexURL])) {
+                            /* Set last item of the explode */
+                            $explLast = $explURL[$indexURL];
+
+                            /* Check if page is robots.txt */
+                            $robotsName = 'robots.txt';
+                            $robotsLength = -1 * strlen($robotsName);
+                            if (substr($object->url, $robotsLength) === $robotsName && $explLast === $robotsName) {
+                                $object->format = self::TYPE_PAGE_ROBOTS;
+
+                            /* Check if page is sitemap */
+                            } elseif (preg_match('/^sitemap[a-z0-9_]+\.xml$/i', $explLast)) {
+                                $object->format = self::TYPE_PAGE_SITEMAP;
+                            }
+                        }
+                    }
                 } else {
                     $object->type = self::TYPE_UNKNOWN;
                 }
@@ -133,9 +163,33 @@ class Request {
             $object->type = self::TYPE_OTHER;
         }
 
-        /* Set path */
+        /* Set path, based on raw path */
         $path = parse_url($url, PHP_URL_PATH);
-        $object->path = ($path === NULL) ? '/' : $path;
+        if ($path !== NULL) {
+            /* Check if page is sitemap or robots.txt */
+            $explPath = explode($path, '/');
+            $indexPath = count($explPath) - 1;
+            if ($indexPath > 0 && !empty($explURL[$indexPath])) {
+                /* Set last item of the explode */
+                $explLast = $explURL[$indexPath];
+
+                /* Check if page is robots.txt */
+                $robotsName = 'robots.txt';
+                $robotsLength = -1 * strlen($robotsName);
+                if (substr($object->url, $robotsLength) === $robotsName && $explLast === $robotsName) {
+                    $object->format = self::TYPE_PAGE_ROBOTS;
+
+                /* Check if page is sitemap */
+                } elseif (preg_match('/^sitemap[a-z0-9_]+\.xml$/i', $explLast)) {
+                    $object->format = self::TYPE_PAGE_SITEMAP;
+                }
+            }
+
+            /* Set path */
+            $object->path = $path;
+        } else {
+            $object->path = '/';
+        }
 
         /* Set simple URL */
         $object->domainURL = $object->scheme . '://' . $object->host . '/';
@@ -228,6 +282,10 @@ class Request {
 
     public function getDomainURL() {
         return $this->_domainURL;
+    }
+
+    public function isContent() {
+        return $this->_format === self::FORMAT_CONTENT;
     }
 
     public function getContent($encoding = 'UTF-8') {
