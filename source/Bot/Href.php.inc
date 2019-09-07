@@ -14,6 +14,8 @@ class Href {
     const CHANGE_FREY_YEARLY = 'yearly';
     const CHANGE_FREY_NEVER = 'never';
 
+    protected $_timezone = NULL;
+
     protected $_url = NULL;
     protected $_host = NULL;
     protected $_type = FALSE;
@@ -28,15 +30,18 @@ class Href {
         $this->_host = $object->host;
         $this->_type = $object->type;
 
+        /* Set timezone */
+        $this->_timezone = new \DateTimeZone('UTC');
+
         /* Check if lastModified is not empty */
         if ($lastModified !== NULL) {
             try {
-                $this->_lastModified = new \DateTime($lastModified);
+                $this->_lastModified = new \DateTime($lastModified, $this->_timezone);
             } catch (\Exception $e) {
-                $this->_lastModified = new \DateTime;
+                $this->_lastModified = new \DateTime('now', $this->_timezone);
             }
         } else {
-            $this->_lastModified = new \DateTime;
+            $this->_lastModified = new \DateTime('now', $this->_timezone);
         }
 
         /* Set change frey */
@@ -87,7 +92,33 @@ class Href {
     }
 
     public function getNextExport() {
-        return 0;
+        /* Create date object */
+        $dateTime = new \DateTime('now', $this->_timezone);
+        $dateTime->setTimestamp($this->_lastModified->getTimestamp());
+
+        /* Get current time stamp */
+        switch ($this->_changeFrey) {
+            case self::CHANGE_FREY_HOURLY:
+                $dateTime->modify('+1 hour');
+                break;
+            case self::CHANGE_FREY_DAILY:
+                $dateTime->modify('+1 day');
+                break;
+            case self::CHANGE_FREY_WEEKLY:
+                $dateTime->modify('+1 week');
+                break;
+            case self::CHANGE_FREY_MONTHLY:
+                $dateTime->modify('+1 month');
+                break;
+            case self::CHANGE_FREY_YEARLY:
+                $dateTime->modify('+1 year');
+                break;
+            default:
+                return 0;
+        }
+
+        /* Get next export time */
+        return $dateTime->getTimestamp();
     }
 
     public function toStdClass(string $domainURL) : \stdClass {

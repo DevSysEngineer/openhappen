@@ -19,7 +19,7 @@ class JSON {
         }
 
         /* Set UTC timezone */
-        $this->_timezone = new DateTimeZone('UTC');
+        $this->_timezone = new \DateTimeZone('UTC');
     }
 
     protected function _getLocationDir(string $filename = NULL) : string {
@@ -66,6 +66,42 @@ class JSON {
         return [$object, ''];
     }
 
+    protected function _simplifyString(string $string, &$allWords) {
+        $newLine = [];
+        $words = explode(' ', $string);
+        foreach ($words as $word) {
+            if (strlen($word) > 3) {
+                $searchKey = array_search($word, $allWords);
+                if ($searchKey === FALSE) {
+                    /* Set new word */
+                    $allWords[] = $word;
+
+                    /* Set new line */
+                    $index = count($allWords);
+                    $newLine[] = '[' . ($index - 1);
+                } else {
+                    $newLine[] = '[' . $searchKey;
+                }
+            } else {
+                $newLine[] = $word;
+            }
+        }
+
+        /* Return line */
+        return implode($newLine, ' ');
+    }
+
+    protected function _simplifyArray(array $lines, &$allWords) {
+        /* Convert lines */
+        $newLines = [];
+        foreach ($lines as $key => $line) {
+            $newLines[$key] = $this->_simplifyString($line, $allWords);
+        }
+
+        /* Return new lines */
+        return $newLines;
+    }
+
     public function init() {
         /* Create page dir */
         $dirLocation = $this->_getLocationDir();
@@ -83,19 +119,23 @@ class JSON {
         /* Get request*/
         $request = $location->getRequest();
 
+        /* Create variable for all words */
+        $allWords = [];
+
         /* Create main object */
         $object = new \stdClass;
         $object->version = $this->_version;
         $object->lastExport = time();
-        $object->nextExport = 0;
+        $object->nextExport = $href->getNextExport();
         $object->changeFrey = $href->getChangeFreq();
         $object->url = $request->getURL();
 
         /* Create page object */
         $locationObj = new \stdClass;
-        $locationObj->title = $location->getTitle();
-        $locationObj->headers = $location->getHeaders();
-        $locationObj->paragraphs = $location->getParagraphs();
+        $locationObj->title = $this->_simplifyString($location->getTitle(), $allWords);
+        $locationObj->headers = $this->_simplifyArray($location->getHeaders(), $allWords);
+        $locationObj->paragraphs = $this->_simplifyArray($location->getParagraphs(), $allWords);
+        $locationObj->words = $allWords;
 
         /* Add page to main object */
         $object->location = $locationObj;
@@ -155,35 +195,34 @@ class JSON {
         }
 
         /* Create date object */
-        $dateTime = new DateTime('now', $this->_timezone);
+        $dateTime = new \DateTime('now', $this->_timezone);
         $currentTimestamp = $dateTime->getTimestamp();
-
-        /* Change current date/time to last export date/time */
-        $dateTime->setTimestamp($object->lastExport);
-
-        /* Get current time stamp */
-        switch ($object->changeFrey) {
-            case Bot\Href::CHANGE_FREY_HOURLY:
-                $dateTime->modify('+1 hour');
-                break;
-            case Bot\Href::CHANGE_FREY_DAILY:
-                $dateTime->modify('+1 day');
-                break;
-            case Bot\Href::CHANGE_FREY_WEEKLY:
-                $dateTime->modify('+1 week');
-                break;
-            case Bot\Href::CHANGE_FREY_MONTHLY:
-                $dateTime->modify('+1 month');
-                break;
-            case Bot\Href::CHANGE_FREY_YEARLY:
-                $dateTime->modify('+1 year');
-                break;
-            default:
-                return FALSE;
-        }
+        $dateTime->setTimestamp($object->nextExport);
+        $nextTmestamp = $dateTime->getTimestamp();
 
         /* Check if last export time with modified data is not newer than current time */
-        return ($dateTime->getTimestamp() < $currentTimestamp);
+        return ($nextTmestamp < $currentTimestamp);
+    }
+
+    public function getRawContent(string $url) : \stdClass {
+         /* Check if location not exists */
+        if (!$this->existsLocation($url)) {
+            $object = new \stdClass;
+            $object->error = 'No data found for this URL';
+            return $object;
+        }
+
+        /* Get content */
+        $path = $this->_getLocationDir(Bot\Request::Base64URLEncode($url));
+        list($object, $message) = $this->_getContent($path);
+        if ($object === NULL) {
+            $object = new \stdClass;
+            $object->error = $message;
+            return $object;
+        }
+
+        /* Return object */
+        return $object;
     }
 
     public function existsLocation(string $url) : bool {

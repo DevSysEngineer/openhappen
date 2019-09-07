@@ -21,13 +21,67 @@ class SmartDOM {
         return trim(preg_replace('/\s\s+/', ' ', str_replace(PHP_EOL, '', $string)));
     }
 
+    protected function _getSpecialElements(array $searchTagNames, \DOMNode $element) : array {
+       /* Try to get elements */
+        $specialElements = [];
+        foreach ($searchTagNames as $searchTagName) {
+            $childElements = $element->getElementsByTagName($searchTagName);
+            if (!empty($childElements) && $childElements->count() > 0) {
+                $specialElements[$searchTagName] = $childElements;
+            }
+        }
+
+        /* Return elements */
+        return $specialElements;
+    }
+
+    protected function _getHeader(string $tagName, \DOMNode $element, array &$headers) {
+        /* Create some values */
+        $header = [];
+
+        /* Try to get data from element and set to header */
+        $this->extractText($element, $header);
+
+        /* Check if header is not empty */
+        if (!empty($header)) {
+            /* Check if current tagName is special array */
+            if (in_array($tagName, ['header', 'li'])) {
+                /* Try to get elements */
+                $specialElements = $this->_getSpecialElements(['ul'], $element);
+                if (!empty($specialElements)) {
+                    foreach ($specialElements as $childTagName => $childElements) {
+                        foreach ($childElements as $childElement) {
+                            $this->_getHeader($childTagName, $childElement, $headers);
+                        }
+                    }
+                } else {
+                    /* Set value */
+                    $headers[] = implode(' ', $header);
+                }
+            } else if (in_array($tagName, ['ul'])) {
+                /* Try to get elements */
+                $specialElements = $this->_getSpecialElements(['li'], $element);
+                if (!empty($specialElements)) {
+                    foreach ($specialElements as $childTagName => $childElements) {
+                        foreach ($childElements as $childElement) {
+                            $this->_getHeader($childTagName, $childElement, $headers);
+                        }
+                    }
+                }
+            } else {
+                /* Set value */
+                $headers[] = implode(' ', $header);
+            }
+        }
+    }
+
     public function load(string $content) : array {
         /* Load content by type */
         switch ($this->_type) {
             case self::TYPE_PAGE:
                 /* Check if first char are html */
-                if (substr($content, 0, 5) !== '<html') {
-                    return [FALSE, 'Failed to load HTML'];
+                if (substr($content, 0, 5) !== '<html' && substr($content, 0, 14) !== '<!DOCTYPE html') {
+                    return [FALSE, 'Failed to load HTML, because invalid HTNL tag: ' . substr($content, 0, 5)];
                 }
 
                 /* Load HTML */
@@ -224,22 +278,20 @@ class SmartDOM {
     }
 
     public function getHeaders() : array {
-        /* Get all headers */
+        /* Set some value  */
         $headers = [];
         $tagNames = ['h1', 'h2', 'h3', 'h4', 'h5', 'h5', 'header'];
+
+        /* Get all headers */
         foreach ($tagNames as $tagName) {
             $elements = $this->_domDocument->getElementsByTagName($tagName);
             foreach ($elements as $element) {
-                $header = [];
-                $this->extractText($element, $header);
-                if (!empty($header)) {
-                    $headers[] = implode(' ', $header);
-                }
+                $this->_getHeader($tagName, $element, $headers);
             }
         }
 
         /* Return headers */
-        return $headers;
+        return array_unique($headers, SORT_STRING);
     }
 
     public function getParagraphs() : array {
@@ -255,6 +307,6 @@ class SmartDOM {
         }
 
         /* Return paragraphs */
-        return $paragraphs;
+        return array_unique($paragraphs, SORT_STRING);
     }
 }

@@ -84,7 +84,7 @@ class Robots {
             switch ($directive) {
                 case self::DIRECTIVE_SITEMAP:
                     $this->_sitemapHrefs[] = new Href($value, NULL, Href::CHANGE_FREY_ALWAYS);
-                    continue;
+                    continue 2;
             }
 
             /* Check if directive is useragent */
