@@ -38,7 +38,7 @@ class Bot {
     }
 
     protected function _log(string $text) {
-        echo '[' . date('r') . '] ' . $text . PHP_EOL;
+        echo '[' . date('r') . '][BOT] ' . $text . PHP_EOL;
     }
 
     public function init() : array {

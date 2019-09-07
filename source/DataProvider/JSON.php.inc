@@ -6,6 +6,8 @@ use OpenHappen\Bot;
 
 class JSON {
 
+    const MINIMAL_LENGTH = 4;
+
     protected $_version = 'v0.0.1';
     protected $_dir = NULL;
     protected $_timezone = NULL;
@@ -20,6 +22,10 @@ class JSON {
 
         /* Set UTC timezone */
         $this->_timezone = new \DateTimeZone('UTC');
+    }
+
+    protected function _log(string $text) {
+        echo '[' . date('r') . '][JSON] ' . $text . PHP_EOL;
     }
 
     protected function _getLocationDir(string $filename = NULL) : string {
@@ -66,21 +72,65 @@ class JSON {
         return [$object, ''];
     }
 
-    protected function _simplifyString(string $string, &$allWords) {
+    protected function _simplifyPart(string $word, array $parts, array &$newLine, array &$allWords) : bool {
+        /* Create some default values */
+        $foundWord = FALSE;
+        $customWord = [];
+
+        /* Loop parts */
+        foreach ($parts as $partValue) {
+            if (count($customWord) >= self::MINIMAL_LENGTH) {
+                $newWord = implode($customWord, '');
+                $foundWord = array_search($newWord, $allWords);
+                if ($foundWord !== FALSE) {
+                    /* Replace part of a string. */
+                    $newLine[] = str_replace($newWord, '[' . $foundWord . '%', $word);
+
+                    /* Create some log */
+                    $this->_log('Found part in list: ' . $word . ' (' . $newWord . '), key: ' . $foundWord);
+                    break;
+                } else {
+                    $customWord[] = $partValue;
+                }
+            } else {
+                $customWord[] = $partValue;
+            }
+        }
+
+        /* Return result */
+        return $foundWord;
+    }
+
+    protected function _simplifyString(string $string, array &$allWords) {
         $newLine = [];
         $words = explode(' ', $string);
         foreach ($words as $word) {
-            if (strlen($word) > 3) {
+            if (strlen($word) >= self::MINIMAL_LENGTH) {
                 $searchKey = array_search($word, $allWords);
                 if ($searchKey === FALSE) {
-                    /* Set new word */
-                    $allWords[] = $word;
+                    /* Set default state on FALSE */
+                    $foundWord = FALSE;
 
-                    /* Set new line */
-                    $index = count($allWords);
-                    $newLine[] = '[' . ($index - 1);
+                    /* Try to search parts of a word in all words */
+                    $strArgs = str_split($word);
+                    $foundWord = $this->_simplifyPart($word, $strArgs, $newLine, $allWords);
+
+                     /* Try to search parts of a word in all words in reverse way */
+                    if ($foundWord === FALSE) {
+                        $foundWord = $this->_simplifyPart($word, array_reverse($strArgs), $newLine, $allWords);
+                    }
+
+                    /* No part found, create new word */
+                    if ($foundWord === FALSE) {
+                        /* Set new word */
+                        $allWords[] = $word;
+
+                        /* Set new line */
+                        $index = count($allWords);
+                        $newLine[] = '[' . ($index - 1) . '%';
+                    }
                 } else {
-                    $newLine[] = '[' . $searchKey;
+                    $newLine[] = '[' . $searchKey . '%';
                 }
             } else {
                 $newLine[] = $word;
@@ -88,7 +138,7 @@ class JSON {
         }
 
         /* Return line */
-        return implode($newLine, ' ');
+        return str_replace(['% [', ' [', '% ', '%. ', '. ', ', '], ['&', '~', '^', '`', '.', ','], implode($newLine, ' '));
     }
 
     protected function _simplifyArray(array $lines, &$allWords) {
@@ -122,10 +172,13 @@ class JSON {
         /* Create variable for all words */
         $allWords = [];
 
+        /* Create date object */
+        $dateTime = new \DateTime('now', $this->_timezone);
+
         /* Create main object */
         $object = new \stdClass;
         $object->version = $this->_version;
-        $object->lastExport = time();
+        $object->lastExport = $dateTime->getTimestamp();
         $object->nextExport = $href->getNextExport();
         $object->changeFrey = $href->getChangeFreq();
         $object->url = $request->getURL();
@@ -220,6 +273,9 @@ class JSON {
             $object->error = $message;
             return $object;
         }
+
+        /* Translate title */
+        $object->title = $object->title;
 
         /* Return object */
         return $object;
