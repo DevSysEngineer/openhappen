@@ -98,19 +98,16 @@ class JSON {
         }
 
         /* Return result */
-        return $foundWord;
+        return ($foundWord === FALSE) ? FALSE : TRUE;
     }
 
-    protected function _simplifyString(string $string, array &$allWords) {
+    protected function _simplifyString(string $string, array &$allWords) : string {
         $newLine = [];
         $words = explode(' ', $string);
         foreach ($words as $word) {
             if (strlen($word) >= self::MINIMAL_LENGTH) {
                 $searchKey = array_search($word, $allWords);
                 if ($searchKey === FALSE) {
-                    /* Set default state on FALSE */
-                    $foundWord = FALSE;
-
                     /* Try to search parts of a word in all words */
                     $strArgs = str_split($word);
                     $foundWord = $this->_simplifyPart($word, $strArgs, $newLine, $allWords);
@@ -128,6 +125,9 @@ class JSON {
                         /* Set new line */
                         $index = count($allWords);
                         $newLine[] = '[' . ($index - 1) . '%';
+
+                        /* Create new log */
+                        $this->_log('No part found, add new word: ' . $word . ', key: ' . ($index - 1));
                     }
                 } else {
                     $newLine[] = '[' . $searchKey . '%';
@@ -141,11 +141,60 @@ class JSON {
         return str_replace(['% [', ' [', '% ', '%. ', '. ', ', '], ['&', '~', '^', '`', '.', ','], implode($newLine, ' '));
     }
 
-    protected function _simplifyArray(array $lines, &$allWords) {
+    protected function _simplifyArray(array $lines, array &$allWords) : array {
         /* Convert lines */
         $newLines = [];
         foreach ($lines as $key => $line) {
             $newLines[$key] = $this->_simplifyString($line, $allWords);
+        }
+
+        /* Return new lines */
+        return array_values($newLines);
+    }
+
+    protected function _parseString(string $line, array $allWords) : string {
+        $search = [];
+        $replace = [];
+
+        preg_match_all('/~(\d+?)%/', $line, $outputSpaceBefore);
+        if (count($outputSpaceBefore) === 2) {
+            foreach ($outputSpaceBefore[1] as $key => $value) {
+                if (!empty($value) && !empty($allWords[$value])) {
+                    $search[] = $outputSpaceBefore[0][$key];
+                    $replace[] = ' ' . $allWords[$value];
+                }
+            }
+        }
+
+        preg_match_all('/\[(\d+?)%/', $line, $outputSingle);
+        if (count($outputSingle) === 2) {
+            foreach ($outputSingle[1] as $key => $value) {
+                if (!empty($value) && !empty($allWords[$value])) {
+                    $search[] = $outputSingle[0][$key];
+                    $replace[] = $allWords[$value];
+                }
+            }
+        }
+
+        preg_match_all('/\[(\d+?)\^/', $line, $outputSpaceAfter);
+        if (count($outputSpaceAfter) === 2) {
+            foreach ($outputSpaceAfter[1] as $key => $value) {
+                if (!empty($value) && !empty($allWords[$value])) {
+                    $search[] = $outputSpaceAfter[0][$key];
+                    $replace[] = $allWords[$value]. ' ';
+                }
+            }
+        }
+
+        /* Return new line */
+        return str_replace($search, $replace, $line);
+    }
+
+    protected function _parseArray(array $lines, array $allWords) : array {
+        /* Convert lines */
+        $newLines = [];
+        foreach ($lines as $key => $line) {
+            $newLines[$key] = $this->_parseString($line, $allWords);
         }
 
         /* Return new lines */
@@ -188,7 +237,7 @@ class JSON {
         $locationObj->title = $this->_simplifyString($location->getTitle(), $allWords);
         $locationObj->headers = $this->_simplifyArray($location->getHeaders(), $allWords);
         $locationObj->paragraphs = $this->_simplifyArray($location->getParagraphs(), $allWords);
-        $locationObj->words = $allWords;
+        $locationObj->words = array_values($allWords);
 
         /* Add page to main object */
         $object->location = $locationObj;
@@ -274,8 +323,11 @@ class JSON {
             return $object;
         }
 
-        /* Translate title */
-        $object->title = $object->title;
+        /* Translate data */
+        $words = $object->location->words;
+        $object->location->title = $this->_parseString($object->location->title, $words);
+        $object->location->headers = $this->_parseArray($object->location->headers, $words);
+        $object->location->paragraphs = $this->_parseArray($object->location->paragraphs, $words);
 
         /* Return object */
         return $object;
